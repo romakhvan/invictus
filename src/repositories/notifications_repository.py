@@ -80,13 +80,15 @@ def get_user_ids_with_welcome_message(db, description, title, text, days, limit)
 
     # 6️⃣ Если уведомлений нет — возвращаем пустые значения
     if not docs:
-        return [], None
+        return [], None, None, None
 
     # 7️⃣ Берём первый документ (самое свежее уведомление)
     doc = docs[0]
 
-    # 8️⃣ Извлекаем список пользователей и дату создания
+    # 8️⃣ Извлекаем список пользователей, дату создания, title и text
     user_ids = [str(uid) for uid in doc.get("toUsers", [])]  # ObjectId → string
     created_at = doc.get("created_at")
+    doc_title = doc.get("title")
+    doc_text = doc.get("text")
 
-    return user_ids, created_at, title, text
+    return user_ids, created_at, doc_title, doc_text

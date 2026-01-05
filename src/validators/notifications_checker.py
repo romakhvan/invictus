@@ -32,13 +32,13 @@ def find_users_with_birthday_and_subscription(db, target_date):
 @log_function_call
 def check_birthday_push(db, days=7, limit=1):
     """
-    🎂 Проверяет, что пуш 'С днём рождения 💛' отправлен пользователям
+    🎂 Проверяет, что пуш 'Имя, с днём рождения 💛' отправлен пользователям
     с активной подпиской на момент отправки.
     """
     print("\n=== CHECK: Birthday Push Validation ===")
 
-    expected_title = "С днём рождения 💛"
-    expected_text = "Сегодня самое время сказать спасибо за то, что вы с нами!"
+    expected_title = "Имя, с днём рождения 💛"
+    expected_text = "Сегодня самое время сказать спасибо за то, что вы с нами! Здоровья и побед!"
 
     # ---------- 1️⃣ Получаем уведомление ----------
     user_ids, created_at, title, text = get_user_ids_with_birthday_message(
@@ -107,7 +107,7 @@ def check_birthday_push(db, days=7, limit=1):
 def check_welcome_push(db, days=7, limit=1):
     """
     👋 Проверяет, что пуш 'Добро пожаловать' отправлен пользователям,
-    которые купили абонемент впервые и ещё не были в клубе после покупки.
+    которые купили абонемент впервые и ещё не были в клубе после покупки неделю.
     """
     print("\n=== CHECK: Welcome Push Validation ===")
 

@@ -1,0 +1,40 @@
+---
+alwaysApply: true
+---
+## Project Overview
+The project is an automated testing system for a mobile application, built using Python, Pytest, and Appium. The architecture follows the Page Object Model (POM) principles, ensuring readability, modularity, and easy scalability of the test suite.
+
+The primary goal of the project is to provide a reliable, flexible, and maintainable automation framework that accelerates the release cycle, increases application stability, and helps detect issues early.
+The tests reflect real user scenarios, with a strong focus on stability, repeatability, and minimizing code duplication.
+
+The project also includes custom functionality for:
+
+validating and verifying data stored in MongoDB,
+
+comparing backend database values with UI data,
+
+checking data integrity and schema correctness,
+
+automated validation of values, formats, and structures,
+
+simplifying repetitive data-related checks,
+
+executing MongoDB queries to fetch the latest record (via sorting) so the AI can analyze and understand the structure of stored documents.
+
+In addition, the AI agent works primarily in advisory mode.
+It provides suggestions, explanations, and guidance, while all implementation and file creation are performed manually by the developer.
+The agent generates code, creates files, or modifies project structure only when explicitly requested, ensuring full developer control over the project.
+
+The system is built around the following principles:
+
+Clear separation between test logic and page interaction logic.
+
+Centralized management of waits, utilities, validations, and database operations.
+
+Use of Pytest fixtures for environment setup and database connections.
+
+Strong type hints and documentation for key components.
+
+High-level, readable assertions focused on business outcomes rather than technical details.
+
+The project is designed for long-term scalability and team collaboration: its structure, rules, and architecture allow developers to onboard quickly and extend the test suite effectively.

@@ -1,0 +1,48 @@
+from typing import Any, Optional
+
+from src.utils.debug_utils import log_function_call
+from src.utils.repository_helpers import build_projection, get_collection, normalize_ids
+
+DEFAULT_MASTER_SPECIALIST_PROJECTION = {
+    "_id": 1,
+    "isDeleted": 1,
+    "title": 1,
+}
+
+
+@log_function_call
+def get_master_specialist_by_id(
+    db,
+    master_specialist_id: Any,
+    *,
+    include_deleted: bool = False,
+    projection: Optional[dict] = None,
+) -> Optional[dict]:
+    """
+    Возвращает один документ masterspecialists по _id.
+    """
+    normalized_ids = normalize_ids([master_specialist_id])
+    if not normalized_ids:
+        print("⚠️ get_master_specialist_by_id: неверный идентификатор.")
+        return None
+
+    query = {"_id": normalized_ids[0]}
+    if not include_deleted:
+        query["isDeleted"] = False
+
+    effective_projection = projection or DEFAULT_MASTER_SPECIALIST_PROJECTION
+
+    doc = get_collection(db, "masterspecialists").find_one(
+        query,
+        build_projection(effective_projection),
+    )
+    if doc:
+        print(f"\n✅ Найдена запись masterspecialists {_id_to_str(doc.get('_id'))}")
+    else:
+        print("\n❌ Запись masterspecialists не найдена.")
+    return doc
+
+
+def _id_to_str(value: Any) -> str:
+    return str(value) if value is not None else "<unknown>"
+
