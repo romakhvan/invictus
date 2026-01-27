@@ -5,19 +5,29 @@ from collections import Counter
 from datetime import timedelta
 
 from src.repositories.rabbitholev2_repository import get_all_rabbitholev2_subscriptions_last_14_days
-from src.config.db_config import MONGO_URI_PROD, DB_NAME
+from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
+
+
+# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
+# Выберите окружение базы данных: 'prod' или 'stage'
+ENVIRONMENT = 'prod'  # 'prod' или 'stage'
+# ============================================
 
 
 @pytest.fixture(scope="session")
 def db():
     """
-    Фикстура для подключения к MongoDB PROD.
+    Фикстура для подключения к MongoDB.
+    Окружение определяется переменной ENVIRONMENT.
     """
-    print("\nConnecting to MongoDB PROD...")
-    client = pymongo.MongoClient(MONGO_URI_PROD)
+    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
+    env_name = ENVIRONMENT.upper()
+    
+    print(f"\nConnecting to MongoDB {env_name}...")
+    client = pymongo.MongoClient(mongo_uri)
     db = client[DB_NAME]
     yield db
-    print("\nClosing Mongo PROD connection.")
+    print(f"\nClosing Mongo {env_name} connection.")
     client.close()
 
 

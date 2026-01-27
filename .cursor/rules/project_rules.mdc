@@ -38,3 +38,5 @@ Strong type hints and documentation for key components.
 High-level, readable assertions focused on business outcomes rather than technical details.
 
 The project is designed for long-term scalability and team collaboration: its structure, rules, and architecture allow developers to onboard quickly and extend the test suite effectively.
+
+В качестве примеров записей из базы данных, выводить всегда последние, свежие записи

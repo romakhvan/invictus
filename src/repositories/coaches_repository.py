@@ -58,6 +58,57 @@ def get_coach_by_user_id(
 def _id_to_str(value: Any) -> str:
     return str(value) if value is not None else "<unknown>"
 
+
+@log_function_call
+def get_coach_collaboration_type(
+    db,
+    coach_id: Any,
+    club_id: Any
+) -> Optional[str]:
+    """
+    Определяет тип сотрудничества (collaborationType) тренера с клубом.
+    
+    Args:
+        db: Database connection
+        coach_id: _id записи тренера из коллекции coaches
+        club_id: ID клуба
+    
+    Returns:
+        str: "buhta", "staff" или None если не найдено
+    """
+    from src.utils.id_utils import normalize_object_ids
+    
+    normalized_coach_ids = normalize_object_ids([coach_id])
+    normalized_club_ids = normalize_object_ids([club_id])
+    
+    if not normalized_coach_ids or not normalized_club_ids:
+        return None
+    
+    coach_id_obj = normalized_coach_ids[0]
+    club_id_obj = normalized_club_ids[0]
+    
+    # Получаем тренера с полем instances по _id (не по user!)
+    coach = get_collection(db, "coaches").find_one(
+        {"_id": coach_id_obj},
+        {"instances": 1, "_id": 1}
+    )
+    
+    if not coach:
+        return None
+    
+    instances = coach.get("instances", [])
+    if not instances:
+        return None
+    
+    # Ищем instance с нужным клубом
+    for instance in instances:
+        instance_club_id = instance.get("club")
+        if instance_club_id == club_id_obj:
+            return instance.get("collaborationType")
+    
+    return None
+
+
 def find_coaches_coaches_isdeleted_false(db):
     """
     🎂 Возвращает coaches, у которых isDeleted = false.
@@ -74,5 +125,3 @@ def find_coaches_coaches_isdeleted_false(db):
     print(f"🎂 Найдено coaches isDeleted false: {len(coaches_isdeleted_false_list)}")
 
     return coaches_isdeleted_false_list
-
-find_coaches_coaches_isdeleted_false()

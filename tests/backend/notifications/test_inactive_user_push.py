@@ -1,13 +1,39 @@
 """
 Тесты для push-уведомлений о неактивных пользователях.
 """
+import pytest
+import pymongo
 import pytest_check as check
-from src.validators.inactive_user_push_validator import (
+from src.validators.push_notifications.inactive_user_push_validator import (
     check_inactive_user_push_1_week,
     check_inactive_user_push_2_weeks,
     check_inactive_user_push_4_weeks,
     check_inactive_user_push_8_weeks,
 )
+from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
+
+
+# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
+# Выберите окружение базы данных: 'prod' или 'stage'
+ENVIRONMENT = 'prod'  # 'prod' или 'stage'
+# ============================================
+
+
+@pytest.fixture(scope="session")
+def db():
+    """
+    Фикстура для подключения к MongoDB.
+    Окружение определяется переменной ENVIRONMENT.
+    """
+    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
+    env_name = ENVIRONMENT.upper()
+    
+    print(f"\nConnecting to MongoDB {env_name}...")
+    client = pymongo.MongoClient(mongo_uri)
+    db = client[DB_NAME]
+    yield db
+    print(f"\nClosing Mongo {env_name} connection.")
+    client.close()
 
 
 def test_inactive_user_push_1_week(db):

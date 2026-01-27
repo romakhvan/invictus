@@ -1,0 +1,14 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "10.2.3.22",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "Invtictus Postgre SQL",
+            "username": "qa_eng",
+            "database": "master"
+        }
+    ]
+}

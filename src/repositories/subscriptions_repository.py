@@ -23,7 +23,7 @@ def find_users_with_active_subscription(db, user_ids):
     ))
 
     active_user_ids = {s["user"] for s in subs}
-    print(f"🟢 Активные подписки найдены у {len(active_user_ids)} пользователей.")
+    print(f"[INFO] Активные подписки найдены у {len(active_user_ids)} пользователей.")
 
     return active_user_ids
 @log_function_call
@@ -39,7 +39,7 @@ def get_new_subscriptions(db, target_date, days=7):
 
     start_date = target_date - timedelta(days=days)
     end_date = target_date
-    print(f"📅 ===Поиск всех новых абонементов с {start_date} по {end_date} ===")
+    print(f"[SEARCH] Поиск всех новых абонементов с {start_date} по {end_date}")
     # Ищем подписки, созданные за период
     new_subs = list(subs_col.find(
         {
@@ -57,24 +57,70 @@ def get_new_subscriptions(db, target_date, days=7):
     ))
 
 
-    print(f"🔎 Найдено новых подписок: {len(new_subs)}")
+    print(f"[INFO] Найдено новых подписок: {len(new_subs)}")
 
     # Пользователи с несколькими подписками
     """
     repeated_users = [user for user, count in user_counts.items() if count > 1]
 
     if repeated_users:
-        print(f"⚠️ Найдено {len(repeated_users)} пользователей с повторными подписками за неделю:")
+        print(f"[WARNING] Найдено {len(repeated_users)} пользователей с повторными подписками за неделю:")
         pprint.pprint(repeated_users[:20])  # первые 20 для примера
     else:
-        print("✅ Повторяющихся пользователей за этот период нет.")
+        print("[OK] Повторяющихся пользователей за этот период нет.")
     """
     # Возвращаем уникальные user_id
     new_user_ids = {s["user"] for s in new_subs}
-    print(f"👥 Уникальных пользователей: {len(new_user_ids)}")
+    print(f"[INFO] Уникальных пользователей: {len(new_user_ids)}")
     
 
     return list(new_user_ids)
+
+
+@log_function_call
+def get_new_subscriptions_with_dates(db, target_date, days=7):
+    """
+    🔍 Возвращает словарь {user_id: created_at} для пользователей, 
+    купивших подписку за указанный период.
+    Нужно для проверки входов с момента покупки.
+    """
+    subs_col = db["usersubscriptions"]
+
+    start_date = target_date - timedelta(days=days)
+    end_date = target_date
+    print(f"[SEARCH] Поиск подписок с датами с {start_date} по {end_date}")
+    
+    # Ищем подписки, созданные за период
+    new_subs = list(subs_col.find(
+        {
+            "isDeleted": False,
+            "created_at": {"$gte": start_date, "$lte": end_date},
+            "kid": {"$exists": False},
+            "$expr": {
+                "$gt": [
+                    {"$divide": [{"$subtract": ["$endDate", "$startDate"]}, 1000 * 60 * 60 * 24]},
+                    1  # больше 1 дня
+                ]
+            }
+        },
+        {"_id": 1, "user": 1, "created_at": 1}
+    ))
+
+    print(f"[INFO] Найдено новых подписок: {len(new_subs)}")
+
+    # Для каждого пользователя берем самую раннюю подписку в этом периоде
+    user_subscriptions = {}
+    for sub in new_subs:
+        user_id = sub["user"]
+        created_at = sub.get("created_at")
+        
+        if user_id not in user_subscriptions or created_at < user_subscriptions[user_id]:
+            user_subscriptions[user_id] = created_at
+
+    print(f"[INFO] Уникальных пользователей: {len(user_subscriptions)}")
+    
+    return user_subscriptions
+
 
 @log_function_call
 def get_first_time_subscribers(db, target_date, days=7):
@@ -88,15 +134,15 @@ def get_first_time_subscribers(db, target_date, days=7):
 
     print("\n=== Поиск: у кого первый абонемент ===")
 
-    # 1️⃣ Получаем всех, кто купил подписку за неделю
+    # STEP 1: Получаем всех, кто купил подписку за неделю
     new_user_ids = set(get_new_subscriptions(db, target_date, days))
     if not new_user_ids:
-        print("⚠️ За этот период не найдено новых подписок.")
+        print("[WARNING] За этот период не найдено новых подписок.")
         return []
 
     start_date = target_date - timedelta(days=days)
 
-    # 2️⃣ Проверяем, были ли подписки ранее
+    # STEP 2: Проверяем, были ли подписки ранее
     old_subs = list(subs_col.find(
         {
             "user": {"$in": list(new_user_ids)},
@@ -109,10 +155,10 @@ def get_first_time_subscribers(db, target_date, days=7):
     old_user_ids = {s["user"] for s in old_subs}
     truly_new_user_ids = new_user_ids - old_user_ids
 
-    print(f"🧹 Исключено пользователей с предыдущими подписками: {len(old_user_ids)}")
-    print(f"✅ Осталось пользователей с первой подпиской: {len(truly_new_user_ids)}")
+    print(f"[FILTER] Исключено пользователей с предыдущими подписками: {len(old_user_ids)}")
+    print(f"[RESULT] Осталось пользователей с первой подпиской: {len(truly_new_user_ids)}")
 
-    # 3️⃣ Получаем данные пользователей
+    # STEP 3: Получаем данные пользователей
     users = list(users_col.find(
         {"_id": {"$in": list(truly_new_user_ids)}},
         {"_id": 1, "name": 1, "email": 1, "created_at": 1}
@@ -131,13 +177,13 @@ def find_last_10_subscriptions_with_big_gap(db, months=3):
     """
     subs_col = db["usersubscriptions"]
 
-    # 1️⃣ Рассчитываем разницу в миллисекундах (примерно 30 дней в месяце)
+    # STEP 1: Рассчитываем разницу в миллисекундах (примерно 30 дней в месяце)
     days = months * 30
     ms_threshold = days * 24 * 60 * 60 * 1000  # миллисекунды
 
-    print(f"📅 Поиск последних 10 подписок с разницей > {days} дней между created_at и startDate")
+    print(f"[SEARCH] Поиск последних 10 подписок с разницей > {days} дней между created_at и startDate")
 
-    # 2️⃣ Агрегация
+    # STEP 2: Агрегация
     pipeline = [
         {
             "$addFields": {
@@ -163,19 +209,19 @@ def find_last_10_subscriptions_with_big_gap(db, months=3):
         {"$limit": 100}
     ]
 
-    # 3️⃣ Выполняем запрос
+    # STEP 3: Выполняем запрос
     results = list(subs_col.aggregate(pipeline))
-    print(f"🔎 Найдено подписок с разницей > {days} дней: {len(results)}")
+    print(f"[INFO] Найдено подписок с разницей > {days} дней: {len(results)}")
 
     if results:
-        print("\n📋 Последние 10 подписок с большой разницей дат:")
+        print("\n[INFO] Последние 10 подписок с большой разницей дат:")
         for r in results:
             print(
-                f"🆔 {r['_id']} | {r['user']} | "
+                f"ID: {r['_id']} | {r['user']} | "
                 f"created_at={r['created_at']} | startDate={r['startDate']} | "
-                f"⏱ {round(r['diffDays'])} дней"
+                f"[{round(r['diffDays'])} дней]"
             )
     else:
-        print("⚠️ Подписок с такой разницей не найдено.")
+        print("[WARNING] Подписок с такой разницей не найдено.")
 
     return results

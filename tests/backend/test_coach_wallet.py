@@ -1,3 +1,5 @@
+import pytest
+import pymongo
 import pytest_check as check
 from src.validators.coach_wallet_validator import (
     validate_coach_wallet,
@@ -11,11 +13,36 @@ from src.validators.coach_wallet_validator import (
 )
 from src.repositories.transactions_repository import (
     display_transactions_structure,
-    get_transactions_with_coach_summary
+    get_transactions_with_coach_summary,
+    analyze_transactions_collaboration_types
 )
+from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
+
+
+# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
+# Выберите окружение базы данных: 'prod' или 'stage'
+ENVIRONMENT = 'stage'  # 'prod' или 'stage'
+# ============================================
 
 # ID тренера для тестирования (можно изменить при необходимости)
-COACH_USER_ID = "69455927f4efbb6f78cf929a"
+COACH_USER_ID = "66d030cf0f02c0003eed0eb9"
+
+
+@pytest.fixture(scope="session")
+def db():
+    """
+    Фикстура для подключения к MongoDB.
+    Окружение определяется переменной ENVIRONMENT.
+    """
+    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
+    env_name = ENVIRONMENT.upper()
+    
+    print(f"\nConnecting to MongoDB {env_name}...")
+    client = pymongo.MongoClient(mongo_uri)
+    db = client[DB_NAME]
+    yield db
+    print(f"\nClosing Mongo {env_name} connection.")
+    client.close()
 
 
 def test_coach_wallet_full_validation(db):
@@ -103,9 +130,39 @@ def test_display_mobile_transactions_with_coach(db):
     print("ТЕСТ: Вывод транзакций с тренерами (source='mobile')")
     print("=" * 80)
     
+    # Исключаем ненужные поля для более читаемого вывода
+    projection = {
+        "__v": 0,
+        "metadata": 0,
+        "kaspiId": 0,
+        "parts": 0,
+    }
+    
     # Выводим статистику
-    get_transactions_with_coach_summary(db, source="mobile")
+    get_transactions_with_coach_summary(db, source="mobile", projection=projection)
     
     # Выводим первые 5 записей для анализа структуры
-    display_transactions_structure(db, source="mobile", limit=5)
+    display_transactions_structure(db, source="mobile", limit=1, projection=projection)
+
+
+def test_analyze_coach_collaboration_types(db):
+    """
+    🧪 Анализ типов сотрудничества тренеров в транзакциях.
+    Определяет, является ли тренер "buhta" или "staff" для каждого клуба.
+    """
+    print("\n" + "=" * 80)
+    print("ТЕСТ: Анализ типов сотрудничества тренеров")
+    print("=" * 80)
+    
+    # Анализируем транзакции за последние 7 дней
+    result = analyze_transactions_collaboration_types(
+        db,
+        source="mobile",
+        days=7,
+        limit=50  # Анализируем первые 50 транзакций
+    )
+    
+    # Проверяем, что анализ выполнен
+    check.is_not_none(result, "Результат анализа должен быть получен")
+    check.greater(result["total_analyzed"], 0, "Должны быть проанализированы транзакции")
 

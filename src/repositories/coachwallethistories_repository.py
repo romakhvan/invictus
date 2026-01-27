@@ -238,3 +238,38 @@ def get_transaction_by_id(db, transaction_id: Any) -> Optional[Dict[str, Any]]:
     doc = col.find_one({"_id": normalized_ids[0]})
     return doc
 
+
+@log_function_call
+def check_wallet_history_by_transaction(
+    db,
+    transaction_id: Any,
+    coach_user_id: Optional[Any] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Проверяет наличие записи в coachwallethistories для конкретной транзакции.
+    
+    Args:
+        db: База данных MongoDB
+        transaction_id: ID транзакции
+        coach_user_id: ID тренера (опционально, для дополнительной фильтрации)
+    
+    Returns:
+        Запись из coachwallethistories или None
+    """
+    from src.utils.id_utils import normalize_object_ids
+    
+    col = get_collection(db, "coachwallethistories")
+    
+    normalized_trans_ids = normalize_object_ids([transaction_id])
+    if not normalized_trans_ids:
+        return None
+    
+    query = {"transaction": normalized_trans_ids[0]}
+    
+    if coach_user_id:
+        normalized_coach_ids = normalize_object_ids([coach_user_id])
+        if normalized_coach_ids:
+            query["coach"] = normalized_coach_ids[0]
+    
+    doc = col.find_one(query)
+    return doc

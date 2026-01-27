@@ -18,11 +18,11 @@ DB_NAME = "Cluster0"
 
 
 # PostgreSQL Configuration
-POSTGRES_HOST = "10.2.3.22"  # например: "10.2.3.50" или "localhost"
+POSTGRES_HOST = "10.2.3.22"
 POSTGRES_PORT = 5432
-POSTGRES_USER = "your_username"
-POSTGRES_PASSWORD = "your_password"
-POSTGRES_DATABASE = "your_database_name"
+POSTGRES_USER = "qa_eng"
+POSTGRES_PASSWORD = "Qwedsa3221@#"  # TODO: указать пароль
+POSTGRES_DATABASE = "master"
 
 # Connection URI для psycopg2 или SQLAlchemy
 POSTGRES_URI = (

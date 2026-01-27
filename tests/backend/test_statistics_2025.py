@@ -8,20 +8,29 @@ from datetime import datetime, timedelta
 from collections import Counter
 from bson import ObjectId
 from src.utils.repository_helpers import get_collection, normalize_ids
-from src.config.db_config import MONGO_URI_PROD, DB_NAME
+from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
+
+
+# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
+# Выберите окружение базы данных: 'prod' или 'stage'
+ENVIRONMENT = 'prod'  # 'prod' или 'stage'
+# ============================================
 
 
 @pytest.fixture(scope="session")
 def db():
     """
-    Фикстура для подключения к MongoDB PROD.
-    Переопределяет фикстуру из tests/backend/conftest.py для использования PROD базы.
+    Фикстура для подключения к MongoDB.
+    Окружение определяется переменной ENVIRONMENT.
     """
-    print("\n🔌 Connecting to MongoDB PROD...")
-    client = pymongo.MongoClient(MONGO_URI_PROD)
+    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
+    env_name = ENVIRONMENT.upper()
+    
+    print(f"\n🔌 Connecting to MongoDB {env_name}...")
+    client = pymongo.MongoClient(mongo_uri)
     db = client[DB_NAME]
     yield db
-    print("\n🧹 Closing Mongo PROD connection.")
+    print(f"\n🧹 Closing Mongo {env_name} connection.")
     client.close()
 
 

@@ -21,8 +21,8 @@ def log_function_call(func):
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        print(f"🔻 {func.__name__}")
+        print(f">>> START: {func.__name__}")
         result = func(*args, **kwargs)
-        print(f"🔺{func.__name__}")
+        print(f"<<< END: {func.__name__}")
         return result
     return wrapper
