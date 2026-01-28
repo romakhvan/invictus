@@ -2,8 +2,8 @@
 # Строки, начинающиеся с #, игнорируются
 
 # Push-уведомления
-# tests/backend/notifications/test_welcome_push.py::test_welcome_push_with_new_subscriptions
-# tests/backend/notifications/test_birthday_push.py::test_birthday_push_with_active_users
+tests/backend/notifications/test_welcome_push.py::test_welcome_push_with_new_subscriptions
+tests/backend/notifications/test_birthday_push.py::test_birthday_push_with_active_users
 
 # Можно указывать целые файлы
 # tests/backend/notifications/test_guest_visits_push.py
