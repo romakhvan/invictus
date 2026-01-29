@@ -65,20 +65,20 @@ appium
 
 #### 1. Resource ID (самый надежный)
 ```
-resource-id: kz.fitnesslabs.invictus.staging:id/login_button
+resource-id: com.example.app:id/login_button
 ```
 **В коде:**
 ```python
-AppiumBy.ID, "kz.fitnesslabs.invictus.staging:id/login_button"
+AppiumBy.ID, "com.example.app:id/login_button"
 ```
 
 #### 2. XPath
 ```
-xpath: //android.widget.Button[@resource-id='kz.fitnesslabs.invictus.staging:id/login_button']
+xpath: //android.widget.Button[@resource-id='com.example.app:id/login_button']
 ```
 **В коде:**
 ```python
-AppiumBy.XPATH, "//android.widget.Button[@resource-id='kz.fitnesslabs.invictus.staging:id/login_button']"
+AppiumBy.XPATH, "//android.widget.Button[@resource-id='com.example.app:id/login_button']"
 ```
 
 #### 3. Accessibility ID (content-desc)
@@ -118,7 +118,7 @@ from appium.webdriver.common.appiumby import AppiumBy
 # Если ID полный
 button = driver.find_element(
     AppiumBy.ID, 
-    "kz.fitnesslabs.invictus.staging:id/login_button"
+    "com.example.app:id/login_button"
 )
 
 # Если ID короткий (только после двоеточия)

@@ -52,7 +52,7 @@ adb devices
 **Решение:**
 ```bash
 # Проверьте, установлено ли приложение
-adb shell pm list packages | findstr "kz.fitnesslabs.invictus.staging"
+adb shell pm list packages | findstr "com.example.app"
 
 # Если не установлено, установите:
 adb install path/to/app.apk
@@ -81,12 +81,12 @@ appium driver install uiautomator2
 
 ## Проверка конфигурации
 
-Убедитесь, что в `src/config/app_config.py` указаны правильные значения:
+Убедитесь, что в `src/config/app_config.py` или `.env` файле указаны правильные значения:
 
 ```python
-MOBILE_DEVICE_NAME = "adb-R3CT60QGWPP-Jms8yO._adb-tls-connect._tcp"  # Из 'adb devices'
-MOBILE_PLATFORM_VERSION = "16"  # Из 'adb shell getprop ro.build.version.release'
-MOBILE_APP_PACKAGE = "kz.fitnesslabs.invictus.staging"  # Из 'adb shell dumpsys window'
+MOBILE_DEVICE_NAME = "emulator-5554"  # Из 'adb devices'
+MOBILE_PLATFORM_VERSION = "14"  # Из 'adb shell getprop ro.build.version.release'
+MOBILE_APP_PACKAGE = "com.example.app"  # Из 'adb shell dumpsys window'
 MOBILE_APP_ACTIVITY = ".MainActivity"  # Из 'adb shell dumpsys window'
 ```
 

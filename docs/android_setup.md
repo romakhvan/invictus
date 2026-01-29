@@ -116,42 +116,38 @@ aapt dump badging your_app.apk | Select-String -Pattern "launchable-activity"
 
 **Пример вывода команды:**
 ```
-mCurrentFocus=Window{721969e u0 kz.fitnesslabs.invictus.staging/kz.fitnesslabs.invictus.staging.MainActivity}
-mFocusedApp=ActivityRecord{179889719 u0 kz.fitnesslabs.invictus.staging/.MainActivity t964}
+mCurrentFocus=Window{721969e u0 com.example.app/com.example.app.MainActivity}
+mFocusedApp=ActivityRecord{179889719 u0 com.example.app/.MainActivity t964}
 ```
 
 **Из этого вывода извлекаем:**
-- **Package name**: `kz.fitnesslabs.invictus.staging`
-- **Activity**: `kz.fitnesslabs.invictus.staging.MainActivity` (полное имя) или `.MainActivity` (короткое)
+- **Package name**: `com.example.app`
+- **Activity**: `com.example.app.MainActivity` (полное имя) или `.MainActivity` (короткое)
 
 ## Настройка конфигурации
 
-Откройте `src/config/app_config.py` и укажите:
+Откройте `.env` файл и укажите:
 
-```python
-# Путь к .apk файлу (если устанавливаете приложение)
-MOBILE_APP_PATH = None  # Укажите путь, если нужно установить приложение
-
-# Package name и activity (если приложение уже установлено)
-# Эти значения будут использоваться по умолчанию, если не указаны в тестах
-MOBILE_APP_PACKAGE = "kz.fitnesslabs.invictus.staging"  # Из вывода adb shell dumpsys window
-MOBILE_APP_ACTIVITY = "kz.fitnesslabs.invictus.staging.MainActivity"  # Из вывода adb shell dumpsys window
-
-MOBILE_PLATFORM = "Android"
-MOBILE_DEVICE_NAME = "emulator-5554"  # Или имя вашего устройства из 'adb devices'
-MOBILE_PLATFORM_VERSION = "13.0"  # Версия Android
-MOBILE_APPIUM_SERVER = "http://localhost:4723"
+```bash
+# Mobile Application Configuration
+MOBILE_APP_PATH=  # Укажите путь к .apk, если нужно установить приложение
+MOBILE_PLATFORM=Android
+MOBILE_DEVICE_NAME=emulator-5554  # Или имя вашего устройства из 'adb devices'
+MOBILE_PLATFORM_VERSION=14  # Версия Android
+MOBILE_APP_PACKAGE=com.example.app  # Из вывода adb shell dumpsys window
+MOBILE_APP_ACTIVITY=.MainActivity  # Из вывода adb shell dumpsys window
+APPIUM_SERVER_URL=http://localhost:4723
 ```
 
 **Вариант 1: Использование констант из конфига (рекомендуется)**
 
-Если вы указали `MOBILE_APP_PACKAGE` и `MOBILE_APP_ACTIVITY` в конфиге, фикстура в `tests/conftest.py` будет использовать их автоматически:
+Если вы указали `MOBILE_APP_PACKAGE` и `MOBILE_APP_ACTIVITY` в `.env`, фикстура в `tests/conftest.py` будет использовать их автоматически:
 ```python
 @pytest.fixture(scope="function")
 def appium_driver():
     """Фикстура для Appium драйвера с установленным приложением."""
     driver = AppiumDriver()
-    driver.start()  # Использует MOBILE_APP_PACKAGE и MOBILE_APP_ACTIVITY из конфига
+    driver.start()  # Использует MOBILE_APP_PACKAGE и MOBILE_APP_ACTIVITY из .env
     yield driver
     driver.close()
 ```
@@ -165,8 +161,8 @@ def appium_driver():
     """Фикстура для Appium драйвера с установленным приложением."""
     driver = AppiumDriver()
     driver.start(
-        app_package="kz.fitnesslabs.invictus.staging",
-        app_activity="kz.fitnesslabs.invictus.staging.MainActivity"
+        app_package="com.example.app",
+        app_activity="com.example.app.MainActivity"
     )
     yield driver
     driver.close()
