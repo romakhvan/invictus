@@ -1,4 +1,5 @@
 venv
+.venv
 .idea
 __pycache__
 pytest.cache
@@ -6,6 +7,51 @@ data
 
 # Environment variables (содержит токены и секреты)
 .env
+.env.*
+.env.local
+.env.production
+.env.staging
+!.env.example
+
+# Конфигурации с чувствительными данными
+secrets.py
+*_secrets.py
+config_local.py
+src/config/*_local.py
+
+# Логи (могут содержать чувствительные данные)
+*.log
+logs/
+*.log.*
+
+# Скриншоты и видео из тестов (могут содержать персональные данные)
+screenshots/
+videos/
+test-results/
+
+# Сертификаты и ключи
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.keystore
+
+# Файлы с токенами
+tokens.json
+credentials.json
+auth.json
+
+# Дампы БД
+*.sql
+*.dump
+*.bak
+
+# Временные файлы с данными
+temp_data/
+tmp/
+*.tmp
 
 # Allure reports
 allure-results/
