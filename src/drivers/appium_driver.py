@@ -117,7 +117,7 @@ class AppiumDriver:
         if "no_reset" in kwargs:
             options.no_reset = kwargs["no_reset"]
         else:
-            options.no_reset = True  # По умолчанию не сбрасываем данные приложения
+            options.no_reset = False  # По умолчанию сбрасываем приложение к начальному состоянию
         
         if "full_reset" in kwargs:
             options.full_reset = kwargs["full_reset"]
@@ -127,6 +127,23 @@ class AppiumDriver:
             options.auto_grant_permissions = kwargs["auto_grant_permissions"]
         else:
             options.auto_grant_permissions = True  # Автоматически давать разрешения
+        
+        # Опции для предотвращения сворачивания приложения
+        # Не блокировать экран и не переходить в режим сна
+        if "no_sign" not in kwargs:
+            options.no_sign = True  # Не подписывать приложение заново
+        
+        # Настройки энергосбережения и блокировки
+        # Отключаем автоблокировку экрана во время теста
+        options.settings = {
+            'ignoreUnimportantViews': True,  # Игнорировать декоративные элементы (ускорение)
+            'allowInvisibleElements': True,  # Позволить взаимодействие с невидимыми элементами
+            'enableNotificationListener': False,  # Не слушать уведомления (может отвлекать)
+        }
+        
+        # Дополнительные аргументы для adb
+        # Предотвращаем засыпание экрана
+        options.adb_exec_timeout = 60000  # Таймаут для adb команд (мс)
         
         return options
     
@@ -157,6 +174,76 @@ class AppiumDriver:
         if not self.driver:
             raise RuntimeError("Драйвер не запущен. Вызовите start() сначала.")
         return self.driver
+    
+    def keep_app_active(self):
+        """
+        Принудительно активирует приложение если оно свернулось.
+        Полезно вызывать перед важными действиями в тесте.
+        """
+        if not self.driver:
+            return
+        
+        try:
+            from src.config.app_config import MOBILE_APP_PACKAGE
+            current_package = self.driver.current_package
+            
+            # Если текущий package не наш - активируем приложение
+            if current_package != MOBILE_APP_PACKAGE:
+                print(f"⚠️ Приложение не в фокусе (текущий: {current_package}), активируем...")
+                self.driver.activate_app(MOBILE_APP_PACKAGE)
+                import time
+                time.sleep(1)
+                print(f"✅ Приложение активировано: {MOBILE_APP_PACKAGE}")
+        except Exception as e:
+            print(f"⚠️ Не удалось проверить/активировать приложение: {e}")
+    
+    def wake_device(self):
+        """Разблокировать экран если устройство заблокировано."""
+        if not self.driver:
+            return
+        
+        try:
+            # Проверяем, заблокирован ли экран
+            if not self.driver.is_locked():
+                return
+            
+            print("⚠️ Устройство заблокировано, разблокируем...")
+            self.driver.unlock()
+            import time
+            time.sleep(0.5)
+            print("✅ Устройство разблокировано")
+        except Exception as e:
+            print(f"⚠️ Не удалось разблокировать устройство: {e}")
+    
+    def check_app_state(self) -> dict:
+        """
+        Проверяет текущее состояние приложения.
+        
+        Returns:
+            dict с информацией о состоянии:
+            - current_package: текущий package
+            - current_activity: текущая activity
+            - is_target_app: находимся ли в целевом приложении
+            - is_locked: заблокирован ли экран
+        """
+        if not self.driver:
+            return {"error": "Driver not initialized"}
+        
+        try:
+            from src.config.app_config import MOBILE_APP_PACKAGE
+            
+            current_package = self.driver.current_package
+            current_activity = self.driver.current_activity
+            is_locked = self.driver.is_locked()
+            
+            return {
+                "current_package": current_package,
+                "current_activity": current_activity,
+                "is_target_app": current_package == MOBILE_APP_PACKAGE,
+                "is_locked": is_locked
+            }
+        except Exception as e:
+            return {"error": str(e)}
     
     def close(self):
         """Закрыть драйвер и освободить ресурсы."""

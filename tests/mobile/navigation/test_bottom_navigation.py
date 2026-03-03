@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from src.utils.ui_helpers import click_element_with_fallback
 
 if TYPE_CHECKING:
     from appium.webdriver import Remote
@@ -66,12 +67,13 @@ def test_navigation_click(mobile_driver: "Remote"):
     
     # ЗАМЕНИТЕ на реальный селектор вкладки!
     tab_text = "Тренировки"  # Пример
+    tab_xpath = f"//*[@text='{tab_text}']"
     
     try:
         # Находим и кликаем по вкладке
         tab = wait.until(
             EC.element_to_be_clickable(
-                (AppiumBy.XPATH, f"//*[@text='{tab_text}']")
+                (AppiumBy.XPATH, tab_xpath)
             )
         )
         print(f"✅ Вкладка '{tab_text}' найдена")
@@ -79,7 +81,7 @@ def test_navigation_click(mobile_driver: "Remote"):
         initial_activity = driver.current_activity
         
         # Кликаем
-        tab.click()
+        click_element_with_fallback(driver, wait, tab_xpath)
         print(f"✅ Клик выполнен")
         
         # Ждем немного для перехода

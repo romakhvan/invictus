@@ -43,6 +43,7 @@ def db():
 @allure.description('Анализирует транзакции за последние 7 дней и показывает статистику создания чеков по каждому клубу')
 @allure.severity(allure.severity_level.CRITICAL)
 @allure.tag('backend', 'webkassa', 'monitoring', 'receipts')
+@allure.link("https://docs.google.com/spreadsheets/d/1zE_eUYsGQXvJQOM3FnOc83O2mt5pZT8-SvJwQ2YeCnA/edit?gid=0#gid=0")
 def test_webkassa_status_by_clubs(db):
     """
     Анализирует создание чеков по всем клубам за последние 7 дней.
@@ -133,7 +134,8 @@ def test_webkassa_status_by_clubs(db):
                 "clubId": 1,
                 "webKassaIds": 1,
                 "price": 1,
-                "created_at": 1
+                "created_at": 1,
+                "productType": 1
             }).sort("created_at", -1))
             
             print(f"\nВсего транзакций за период: {len(transactions)}")
@@ -241,7 +243,8 @@ def test_webkassa_status_by_clubs(db):
                         club_stats[club_id]["empty_examples"].append({
                             "transaction_id": trans_id,
                             "price": trans.get("price", 0),
-                            "created_at": trans.get("created_at")
+                            "created_at": trans.get("created_at"),
+                            "productType": trans.get("productType")
                         })
                 else:
                     # Проверяем статусы чеков
@@ -457,6 +460,7 @@ def test_webkassa_status_by_clubs(db):
                     example_text = [
                         f"  - Transaction: {example['transaction_id']}",
                         f"    Сумма: {example['price']} тг",
+                        f"    Тип продукта: {example.get('productType', 'N/A')}",
                         f"    Дата: {example['created_at'].strftime('%Y-%m-%d %H:%M:%S')}"
                     ]
                     

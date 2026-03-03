@@ -28,6 +28,7 @@ logs/
 screenshots/
 videos/
 test-results/
+diagnostics/
 
 # Сертификаты и ключи
 *.pem

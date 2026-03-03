@@ -1,42 +1,165 @@
 ---
 alwaysApply: true
 ---
-## Project Overview
-The project is an automated testing system for a mobile application, built using Python, Pytest, and Appium. The architecture follows the Page Object Model (POM) principles, ensuring readability, modularity, and easy scalability of the test suite.
 
-The primary goal of the project is to provide a reliable, flexible, and maintainable automation framework that accelerates the release cycle, increases application stability, and helps detect issues early.
-The tests reflect real user scenarios, with a strong focus on stability, repeatability, and minimizing code duplication.
+# Project Rules (Cursor)
 
-The project also includes custom functionality for:
+## 1) Project Overview
+This project is an automated testing system for a **mobile application** built with **Python + Pytest + Appium** using **Page Object Model (POM)**.
 
-validating and verifying data stored in MongoDB,
+Goals:
+- stable, repeatable, maintainable UI automation
+- faster release cycle + earlier bug detection
+- minimal duplication, maximum readability
+- scalable structure for long-term teamwork & onboarding
 
-comparing backend database values with UI data,
+The project also includes **MongoDB validation utilities**:
+- validate/verify stored data
+- compare backend values with UI
+- check integrity, schema correctness, formats, structures
+- simplify repetitive data checks
+- fetch latest documents for analysis (sorting)
 
-checking data integrity and schema correctness,
+## 2) Agent Operating Mode (IMPORTANT)
+- The AI works primarily in **advisory mode**: explains, suggests, guides.
+- The AI **must not** create/modify project files or structure **unless explicitly asked**.
+- When code is provided, it should be **copy-paste ready**, with clear file/usage hints.
 
-automated validation of values, formats, and structures,
+## 3) Architecture & Design Principles
+- **Strict separation**:
+  - `tests/` contains business scenarios (what user does / expected outcome)
+  - `pages/` contains UI interactions (selectors, actions, screen logic)
+- Centralize cross-cutting concerns:
+  - waits, driver utils, retry logic
+  - assertions/validators
+  - db client + db helpers
+  - config/environment handling
+- Prefer **composition** over inheritance where possible.
+- Keep page objects small; split large screens into components/sections.
 
-simplifying repetitive data-related checks,
+## 4) Code Style & Quality
+- Use **type hints** everywhere reasonable.
+- Add docstrings to key components (fixtures, services, db helpers, complex page methods).
+- Prefer **explicit names** over abbreviations.
+- Avoid magic numbers/strings; use constants/enums.
+- Assertions should be **business-level** (user outcome) rather than technical.
 
-executing MongoDB queries to fetch the latest record (via sorting) so the AI can analyze and understand the structure of stored documents.
+## 5) Pytest Conventions
+- Use fixtures for:
+  - driver lifecycle
+  - environment/config
+  - authentication / app state
+  - MongoDB connection + collections access
+- Keep tests deterministic:
+  - no dependency on execution order
+  - clean preconditions (setup) and clear postconditions
+- Prefer marking:
+  - `@pytest.mark.smoke`, `@pytest.mark.regression`, etc.
+- For flaky areas: stabilize via **wait strategy + retries + better locators**, not sleeps.
 
-In addition, the AI agent works primarily in advisory mode.
-It provides suggestions, explanations, and guidance, while all implementation and file creation are performed manually by the developer.
-The agent generates code, creates files, or modifies project structure only when explicitly requested, ensuring full developer control over the project.
+## 6) Appium & Wait Strategy
+- Avoid `time.sleep()` in tests/pages (only last resort with clear justification).
+- Use centralized wait utilities:
+  - wait for visibility / clickable / presence
+  - wait for stable screen state (no loaders, animations finished)
+- Locators must be robust:
+  - prefer accessibility ids / test ids
+  - avoid brittle XPath unless absolutely necessary
+- Page methods should:
+  - perform **one logical action**
+  - return the **next page object** when navigation occurs
 
-The system is built around the following principles:
+### Page Opening & Validation Rule (MANDATORY)
+- **When opening or initializing any page, element validation must happen before any actions.**
+- Each page object must have an explicit **page validation step**, ensuring:
+  - required ключевые элементы страницы присутствуют
+  - экран действительно открыт (а не предыдущий / промежуточный)
+- Actions on a page are allowed **only after successful validation**.
 
-Clear separation between test logic and page interaction logic.
+**Recommended patterns:**
+- `Page.__init__()` or dedicated `wait_until_opened()` method:
+  - waits for critical elements
+  - verifies page identity
+- Tests must never interact with a page that hasn’t been validated.
 
-Centralized management of waits, utilities, validations, and database operations.
+**Rationale:**
+- prevents false-positive test passes
+- catches navigation and rendering issues early
+- improves test stability and debuggability
 
-Use of Pytest fixtures for environment setup and database connections.
+## 7) MongoDB Rules (Data Validation)
+### 7.1 Always show latest (fresh) examples
+**Whenever providing example DB records in explanations, ALWAYS use the freshest/latest documents**:
+- Default to sorting by a reliable timestamp field (e.g. `createdAt`, `updatedAt`, `purchaseDate`, `startDate`), descending.
+- If no timestamp is available, sort by `_id` descending (ObjectId contains time component).
 
-Strong type hints and documentation for key components.
+**Example patterns (Compass / PyMongo):**
+- `find({...}).sort({ createdAt: -1 }).limit(1)`
+- `find({...}).sort({ _id: -1 }).limit(1)`
 
-High-level, readable assertions focused on business outcomes rather than technical details.
+If multiple relevant docs exist, show:
+- the latest 1–3 documents
+- and clearly state the sort key used
 
-The project is designed for long-term scalability and team collaboration: its structure, rules, and architecture allow developers to onboard quickly and extend the test suite effectively.
+### 7.2 DB checks philosophy
+- DB assertions must validate:
+  - schema presence (required fields)
+  - types and formats
+  - values consistency with UI
+  - relationships integrity (ids, references)
+- DB helper methods should:
+  - encapsulate queries
+  - return typed models/dicts with clear structure
+  - provide safe defaults and helpful errors
 
-В качестве примеров записей из базы данных, выводить всегда последние, свежие записи
+## 8) Output Format Expectations (for AI responses)
+When answering:
+- Provide:
+  - short reasoning
+  - final recommendation
+  - code snippet(s) if needed
+  - where to place the code (path suggestion)
+- Prefer structured sections:
+  - “What to do”, “Why”, “Example”, “Edge cases”
+- If the user message contains English phrasing to be used in tickets/docs:
+  1) first provide corrected English
+  2) then provide Russian translation
+  3) then proceed with the main answer (if applicable)
+
+## 9) Safety & Control
+- Never introduce new dependencies without mentioning them.
+- Never refactor large parts unless the user explicitly requests.
+- When unsure, propose 1–2 options with trade-offs, defaulting to the safest minimal change.
+
+## 10) Definition of Done (for suggested solutions)
+A solution is “done” when:
+- it’s stable (no sleeps, proper waits)
+- readable and minimal
+- follows POM separation
+- uses fixtures correctly
+- DB examples (if shown) are latest/fresh and clearly sorted
+
+### Test Execution Time Tracking (MANDATORY)
+- **At the end of each test, execution time must be logged/output.**
+- Test duration should be visible in:
+  - console output
+  - CI logs (if applicable)
+- Time tracking must be:
+  - automatic
+  - consistent for all tests
+  - independent of test logic
+
+**Guidelines:**
+- Execution time should reflect the full test lifecycle:
+  - setup
+  - test steps
+  - teardown
+- Prefer framework-level solutions (e.g. Pytest hooks or fixtures),
+  not manual timing inside test bodies.
+- Output format must be clear and readable, for example:
+  - `TEST PASSED: test_login_valid_user — 12.4s`
+
+**Rationale:**
+- helps detect slow and degrading tests
+- improves test suite observability
+- simplifies performance analysis and CI optimization

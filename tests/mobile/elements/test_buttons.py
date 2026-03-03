@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from src.utils.ui_helpers import click_element_with_fallback
 
 if TYPE_CHECKING:
     from appium.webdriver import Remote
@@ -107,15 +108,11 @@ def test_button_click_works(mobile_driver: "Remote"):
     button_xpath = '//android.widget.TextView[@text="Начать"]'
     
     try:
-        button = wait.until(
-            EC.element_to_be_clickable((AppiumBy.XPATH, button_xpath))
-        )
-        
         initial_activity = driver.current_activity
         print(f"   Activity до клика: {initial_activity}")
         
         # Кликаем
-        button.click()
+        click_element_with_fallback(driver, wait, button_xpath)
         print(f"✅ Клик выполнен")
         
         # Ждем реакции приложения

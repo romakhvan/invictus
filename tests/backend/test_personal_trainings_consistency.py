@@ -12,6 +12,27 @@ from src.utils.repository_helpers import get_collection
 from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
 
 
+def _results_to_html_table(results_list, title=""):
+    """Формирует HTML-таблицу из списка results для отображения в Allure (все колонки, включая Created at)."""
+    headers = ["№", "USP ID", "User ID", "Init", "Count", "Tickets", "Hist", "Status", "Updated At", "Created At"]
+    rows = []
+    for r in results_list:
+        updated_str = r["updated_at"].strftime("%Y-%m-%d %H:%M:%S") if r["updated_at"] != "N/A" else "N/A"
+        created_str = r["created_at"].strftime("%Y-%m-%d %H:%M:%S") if r["created_at"] != "N/A" else "N/A"
+        rows.append([
+            str(r["idx"]), r["usp_id"], r["user_id"],
+            str(r["initial_count"]), str(r["count"]), str(r["tickets_count"]), str(r["hist_count"]),
+            r["status"], updated_str, created_str
+        ])
+    th_cells = "".join(f"<th>{h}</th>" for h in headers)
+    trs = []
+    for row in rows:
+        trs.append("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>")
+    table_body = "".join(trs)
+    html = f'<table border="1" cellpadding="4" cellspacing="0"><thead><tr>{th_cells}</tr></thead><tbody>{table_body}</tbody></table>'
+    return html
+
+
 # ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
 # Выберите окружение базы данных: 'prod' или 'stage'
 ENVIRONMENT = 'prod'  # 'prod' или 'stage'
@@ -48,6 +69,9 @@ def db():
 3. currentCount в последней записи userserviceproductshistories
 """)
 @allure.severity(allure.severity_level.CRITICAL)
+@allure.link("https://invictus.entryx.io/user-service-products/")
+@allure.link("https://invictus.entryx.io/users")
+
 def test_personal_trainings_count_consistency_last_20(db):
     """
     Проверяет консистентность количества персональных тренировок
@@ -66,7 +90,7 @@ def test_personal_trainings_count_consistency_last_20(db):
     # 2. Фильтр по дате: установите SPECIFIC_USP_ID = None и настройте DAYS_AGO
     
     SPECIFIC_USP_ID = None  # Установите None для проверки по дате
-    DAYS_AGO = 1  # Количество дней для фильтра по updated_at
+    DAYS_AGO = 7  # Количество дней для фильтра по updated_at
     # ========================================
     
     print("\n" + "=" * 80)
@@ -178,6 +202,7 @@ def test_personal_trainings_count_consistency_last_20(db):
             initial_count = usp.get('initialCount', 'N/A')
             count = usp.get('count', 'N/A')
             updated_at = usp.get('updated_at', 'N/A')
+            created_at = usp.get('created_at', 'N/A')
             
             tickets_count = tickets_counts.get(usp_id, 0)
             hist_count = history_counts.get(usp_id, 'N/A')
@@ -200,7 +225,8 @@ def test_personal_trainings_count_consistency_last_20(db):
                 'tickets_count': tickets_count,
                 'hist_count': hist_count,
                 'status': status,
-                'updated_at': updated_at
+                'updated_at': updated_at,
+                'created_at': created_at
             })
     
     # Статистика общая
@@ -222,58 +248,85 @@ FAIL: {failed_count}
 """
     allure.attach(stats_text.strip(), name="Общая статистика", attachment_type=allure.attachment_type.TEXT)
     
-    # Выводим только записи с расхождениями (первые 5)
+    # Выводим все записи с расхождениями
     if failed_count > 0:
         failed_records = [r for r in results if r['status'] == 'FAIL']
-        displayed_records = failed_records[:5]
+        displayed_records = failed_records
         
-        print("\n" + "=" * 165)
-        print(f"ЗАПИСИ С РАСХОЖДЕНИЯМИ (показаны первые 5 из {failed_count}):")
-        print("=" * 165)
-        print(f"{'№':<4} {'USP ID':<26} {'User ID':<26} {'Init':<5} {'Count':<6} {'Tickets':<8} {'Hist':<5} {'Status':<7} {'Updated At':<22}")
-        print("=" * 165)
+        print("\n" + "=" * 190)
+        print(f"ЗАПИСИ С РАСХОЖДЕНИЯМИ (всего {failed_count}):")
+        print("=" * 190)
+        print(f"{'№':<4} {'USP ID':<26} {'User ID':<26} {'Init':<5} {'Count':<6} {'Tickets':<8} {'Hist':<5} {'Status':<7} {'Updated At':<22} {'Created At':<22}")
+        print("=" * 190)
         
         # Формируем таблицу для Allure
         table_lines = [
-            f"{'№':<4} {'USP ID':<26} {'User ID':<26} {'Init':<5} {'Count':<6} {'Tickets':<8} {'Hist':<5} {'Status':<7} {'Updated At':<22}",
-            "=" * 165
+            f"{'№':<4} {'USP ID':<26} {'User ID':<26} {'Init':<5} {'Count':<6} {'Tickets':<8} {'Hist':<5} {'Status':<7} {'Updated At':<22} {'Created At':<22}",
+            "=" * 190
         ]
         
         for r in displayed_records:
             updated_str = r['updated_at'].strftime('%Y-%m-%d %H:%M:%S') if r['updated_at'] != 'N/A' else 'N/A'
+            created_str = r['created_at'].strftime('%Y-%m-%d %H:%M:%S') if r['created_at'] != 'N/A' else 'N/A'
             
             line = (f"{r['idx']:<4} {r['usp_id']:<26} {r['user_id']:<26} "
                    f"{str(r['initial_count']):<5} {str(r['count']):<6} "
                    f"{str(r['tickets_count']):<8} {str(r['hist_count']):<5} "
-                   f"{r['status']:<7} {updated_str:<22}")
+                   f"{r['status']:<7} {updated_str:<22} {created_str:<22}")
             
             print(line)
             table_lines.append(line)
         
-        print("=" * 165)
+        print("=" * 190)
         
-        # Allure: Прикрепляем таблицу расхождений
+        # Allure: Прикрепляем таблицу расхождений (TEXT + HTML для корректного отображения колонки Created at)
         table_text = "\n".join(table_lines)
-        allure.attach(table_text, name=f"Записи с расхождениями (5 из {failed_count})", attachment_type=allure.attachment_type.TEXT)
+        allure.attach(table_text, name=f"Записи с расхождениями ({failed_count})", attachment_type=allure.attachment_type.TEXT)
+        allure.attach(_results_to_html_table(failed_records), name=f"Записи с расхождениями ({failed_count}) — таблица", attachment_type=allure.attachment_type.HTML)
         
-        # Allure: Прикрепляем полный список расхождений в JSON
-        failed_json = []
-        for r in failed_records:
-            r_copy = r.copy()
-            if r_copy['updated_at'] != 'N/A':
-                r_copy['updated_at'] = r_copy['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
-            failed_json.append(r_copy)
+        # Отдельная таблица для расхождений между USP и TrainingTickets
+        usp_tt_mismatch = [
+            r for r in failed_records 
+            if r['count'] != 'N/A' and r['tickets_count'] != r['count']
+        ]
         
-        allure.attach(
-            json.dumps(failed_json, indent=2, ensure_ascii=False),
-            name=f"Все расхождения ({failed_count}) - JSON",
-            attachment_type=allure.attachment_type.JSON
-        )
+        if usp_tt_mismatch:
+            usp_tt_count = len(usp_tt_mismatch)
+            print("\n" + "=" * 190)
+            print(f"РАСХОЖДЕНИЯ МЕЖДУ USERSERVICEPRODUCTS И TRAININGTICKETS (всего {usp_tt_count}):")
+            print("=" * 190)
+            print(f"{'№':<4} {'USP ID':<26} {'User ID':<26} {'Init':<5} {'Count':<6} {'Tickets':<8} {'Hist':<5} {'Status':<7} {'Updated At':<22} {'Created At':<22}")
+            print("=" * 190)
+            
+            # Формируем таблицу для Allure
+            usp_tt_table_lines = [
+                f"{'№':<4} {'USP ID':<26} {'User ID':<26} {'Init':<5} {'Count':<6} {'Tickets':<8} {'Hist':<5} {'Status':<7} {'Updated At':<22} {'Created At':<22}",
+                "=" * 190
+            ]
+            
+            for r in usp_tt_mismatch:
+                updated_str = r['updated_at'].strftime('%Y-%m-%d %H:%M:%S') if r['updated_at'] != 'N/A' else 'N/A'
+                created_str = r['created_at'].strftime('%Y-%m-%d %H:%M:%S') if r['created_at'] != 'N/A' else 'N/A'
+                
+                line = (f"{r['idx']:<4} {r['usp_id']:<26} {r['user_id']:<26} "
+                       f"{str(r['initial_count']):<5} {str(r['count']):<6} "
+                       f"{str(r['tickets_count']):<8} {str(r['hist_count']):<5} "
+                       f"{r['status']:<7} {updated_str:<22} {created_str:<22}")
+                
+                print(line)
+                usp_tt_table_lines.append(line)
+            
+            print("=" * 190)
+            
+            # Allure: Прикрепляем таблицу расхождений USP vs TT (TEXT + HTML для колонки Created at)
+            usp_tt_table_text = "\n".join(usp_tt_table_lines)
+            allure.attach(usp_tt_table_text, name=f"Расхождения USP ↔ TrainingTickets ({usp_tt_count})", attachment_type=allure.attachment_type.TEXT)
+            allure.attach(_results_to_html_table(usp_tt_mismatch), name=f"Расхождения USP ↔ TrainingTickets ({usp_tt_count}) — таблица", attachment_type=allure.attachment_type.HTML)
     else:
         print("\nВсе данные консистентны! Расхождений не обнаружено.")
         allure.attach("Все данные консистентны! Расхождений не обнаружено.", name="Результат проверки", attachment_type=allure.attachment_type.TEXT)
     
-    print("=" * 165)
+    print("=" * 190)
     
     # Allure: Прикрепляем полный список всех проверенных записей
     all_results_json = []
@@ -281,6 +334,8 @@ FAIL: {failed_count}
         r_copy = r.copy()
         if r_copy['updated_at'] != 'N/A':
             r_copy['updated_at'] = r_copy['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+        if r_copy['created_at'] != 'N/A':
+            r_copy['created_at'] = r_copy['created_at'].strftime('%Y-%m-%d %H:%M:%S')
         all_results_json.append(r_copy)
     
     allure.attach(
@@ -288,6 +343,8 @@ FAIL: {failed_count}
         name=f"Все проверенные записи ({len(results)}) - JSON",
         attachment_type=allure.attachment_type.JSON
     )
+    # HTML-таблица для Allure: все колонки отображаются, включая Created at
+    allure.attach(_results_to_html_table(results), name=f"Все проверенные записи ({len(results)}) — таблица", attachment_type=allure.attachment_type.HTML)
     
     # Проверка: не должно быть расхождений
     assert failed_count == 0, f"Обнаружено {failed_count} записей с расхождениями данных между таблицами"

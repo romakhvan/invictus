@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from src.utils.ui_helpers import click_element_with_fallback
 import time
 
 if TYPE_CHECKING:
@@ -46,7 +47,7 @@ def test_app_start_to_main_screen(mobile_driver: "Remote"):
         print("⚠️ Шаг 2: Не удалось найти характерные элементы главного экрана")
     
     # Шаг 3: Делаем скриншот
-    driver.save_screenshot("scenario_start_to_main.png")
+    driver.save_screenshot("screenshots/scenario_start_to_main.png")
     print("✅ Шаг 3: Скриншот сохранен")
 
 
@@ -63,22 +64,16 @@ def test_button_click_flow(mobile_driver: "Remote"):
     
     wait = WebDriverWait(driver, 10)
     
-    # Шаг 1: Находим кнопку
+    # Шаг 1 и 2: Находим и кликаем по кнопке
     # ЗАМЕНИТЕ на реальный селектор!
     button_xpath = '//android.widget.TextView[@text="Начать"]'
     
+    initial_activity = driver.current_activity
     try:
-        button = wait.until(
-            EC.element_to_be_clickable((AppiumBy.XPATH, button_xpath))
-        )
-        print("✅ Шаг 1: Кнопка найдена")
+        click_element_with_fallback(driver, wait, button_xpath)
+        print("✅ Шаг 1-2: Кнопка найдена и клик выполнен")
     except Exception as e:
         pytest.skip(f"Кнопка не найдена: {e}")
-    
-    # Шаг 2: Кликаем
-    initial_activity = driver.current_activity
-    button.click()
-    print("✅ Шаг 2: Клик выполнен")
     
     # Шаг 3: Ждем реакции
     time.sleep(2)
@@ -91,7 +86,7 @@ def test_button_click_flow(mobile_driver: "Remote"):
         print(f"ℹ️ Шаг 3: Activity не изменилась")
     
     # Делаем скриншот результата
-    driver.save_screenshot("scenario_button_click_result.png")
+    driver.save_screenshot("screenshots/scenario_button_click_result.png")
     print("✅ Шаг 4: Скриншот результата сохранен")
 
 
@@ -128,6 +123,6 @@ def test_scroll_swipe_flow(mobile_driver: "Remote"):
     print("✅ Шаг 2: Скролл вверх выполнен")
     
     # Делаем скриншот
-    driver.save_screenshot("scenario_scroll.png")
+    driver.save_screenshot("screenshots/scenario_scroll.png")
     print("✅ Скриншот сохранен")
 

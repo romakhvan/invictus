@@ -1,0 +1,14 @@
+---
+description: Always use postgres-readonly MCP for SQL work
+globs:
+  - "**/*.sql"
+---
+
+When working with SQL files:
+
+1. Always call the MCP tool `postgres-readonly` before generating any query.
+2. First inspect database schema (list tables, describe tables, check columns).
+3. Never assume column names or foreign keys.
+4. If schema information is missing, fetch it using `postgres-readonly`.
+5. Validate all JOINs and WHERE conditions against real schema.
+6. Only then generate the final SQL query.

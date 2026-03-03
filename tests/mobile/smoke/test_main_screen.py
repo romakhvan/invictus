@@ -34,7 +34,7 @@ def test_main_screen_loaded(mobile_driver: "Remote"):
     print(f"✅ Текущая activity: {current_activity}")
     
     # Делаем скриншот для визуальной проверки
-    screenshot_path = "main_screen.png"
+    screenshot_path = "screenshots/main_screen.png"
     driver.save_screenshot(screenshot_path)
     print(f"📸 Скриншот сохранен: {screenshot_path}")
 
