@@ -97,13 +97,16 @@ tests/mobile/
 
 ```
 src/pages/mobile/
-├── base_mobile_page.py   # Базовый класс для всех мобильных страниц
-├── auth/                 # Экраны авторизации
+├── base_mobile_page.py         # Базовый класс для всех мобильных страниц
+├── shell/                      # Оболочка приложения (main shell / tabbar)
+│   ├── base_shell_page.py      # Базовый класс для страниц с таббаром; предоставляет .nav
+│   └── bottom_nav.py           # Компонент нижней навигации (open_main/bookings/stats/profile)
+├── auth/                       # Экраны авторизации (без таббара → BaseMobilePage)
 │   ├── phone_auth_page.py
 │   ├── sms_code_page.py
 │   ├── country_selector_page.py
 │   └── preview_page.py
-├── onboarding/           # Онбординг нового клиента
+├── onboarding/                 # Онбординг нового клиента (без таббара → BaseMobilePage)
 │   ├── name_page.py
 │   ├── birth_date_page.py
 │   ├── gender_page.py
@@ -113,24 +116,53 @@ src/pages/mobile/
 │   ├── height_page.py
 │   ├── weight_page.py
 │   └── onboarding_complete_page.py
-├── home/                 # Главный экран (оболочка + контент по типу пользователя)
-│   ├── home_page.py      # Оболочка: wait_loaded(), get_current_home_state(), get_content()
-│   ├── home_state.py     # Enum: NEW_USER, SUBSCRIBED, MEMBER, UNKNOWN
+├── home/                       # Таб «Главная» (наследник BaseShellPage → имеет .nav)
+│   ├── home_page.py            # Оболочка: wait_loaded(), get_current_home_state(), get_content()
+│   ├── home_state.py           # Enum: NEW_USER, SUBSCRIBED, MEMBER, UNKNOWN
 │   └── content/
 │       ├── home_new_user_content.py    # Контент для нового пользователя
 │       ├── home_subscribed_content.py  # Контент для клиента с подпиской
 │       └── home_member_content.py      # Контент для клиента с абонементом
-├── products/             # Продукты/фичи внутри приложения
-│   └── rabbit_hole_page.py
-└── common/               # Общие компоненты/страницы (пока пусто или под расширение)
+├── bookings/                   # Таб «Записи» (BaseShellPage)
+│   └── bookings_page.py
+├── stats/                      # Таб «Статистика» (BaseShellPage)
+│   └── stats_page.py
+├── profile/                    # Таб «Профиль» (BaseShellPage)
+│   └── profile_page.py
+└── products/                   # Продукты/фичи внутри приложения
+    └── rabbit_hole_page.py
 ```
 
-### Главная страница (Home)
+### Архитектура shell + tabbar
+
+Tabbar принадлежит **оболочке приложения (main shell)**, а не конкретному разделу:
+
+- **`BaseMobilePage`** — основа для всех страниц. `nav` недоступен.
+- **`BaseShellPage(BaseMobilePage)`** — базовый класс для разделов с таббаром. Предоставляет свойство `.nav → BottomNav`.
+- **`BottomNav`** — компонент навигации. Каждый метод кликает по табу, ждёт загрузки и возвращает нужный Page Object.
+- **Страницы с таббаром** (Home / Bookings / Stats / Profile) наследуются от `BaseShellPage`.
+- **Страницы без таббара** (auth, onboarding, fullscreen-флоу) наследуются от `BaseMobilePage`.
+
+В тестах навигация выглядит так:
+
+```python
+home = HomePage(driver).wait_loaded()
+bookings = home.nav.open_bookings()
+stats = bookings.nav.open_stats()
+profile = stats.nav.open_profile()
+home = profile.nav.open_main()
+```
+
+### Главный экран (Home)
 
 Главный экран реализован как **оболочка + контент по состоянию**:
 
-- **`HomePage`** — общий вход: проверяет, что открыт один из известных вариантов главного экрана (`assert_ui`), определяет состояние (`get_current_home_state()`) и возвращает нужный объект контента (`get_content()`).
+- **`HomePage`** — наследник `BaseShellPage`. Определяет состояние главного экрана и возвращает нужный объект контента.
 - **`HomeState`** — enum: `NEW_USER`, `SUBSCRIBED`, `MEMBER`, `UNKNOWN`.
-- **Классы в `home/content/`** — контент для каждого типа пользователя (локаторы и действия). У каждого есть `DETECT_LOCATOR` для автоматического определения состояния.
+- **Классы в `home/content/`** — контент для каждого типа пользователя. У каждого есть `DETECT_LOCATOR` для автоматического определения состояния.
 
-В тестах: после перехода на главную вызывать `home = HomePage(driver).wait_loaded()`, затем `state = home.get_current_home_state()` или `content = home.get_content()` и работать уже с `content` (например, `content.start_onboarding()` для нового пользователя).
+```python
+home = HomePage(driver).wait_loaded()
+state = home.get_current_home_state()   # → HomeState.NEW_USER / SUBSCRIBED / MEMBER
+content = home.get_content()            # → HomeNewUserContent / ...
+```

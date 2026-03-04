@@ -60,16 +60,31 @@ def _normalize_phone_to_10_digits(phone_value) -> str | None:
     return digits[-10:]
 
 
+def _format_phone_for_display(phone_10_digits: str) -> str:
+    """Форматирует 10 цифр номера в вид как в UI: +7 XXX XXX XX XX."""
+    digits = "".join(c for c in phone_10_digits if c.isdigit())[-10:]
+    if len(digits) != 10:
+        return phone_10_digits
+    return f"+7 {digits[0:3]} {digits[3:6]} {digits[6:8]} {digits[8:10]}"
+
+
+# Условие выбора пользователя для тестов навигации (NEW_USER): potential с заполненным firstName
+POTENTIAL_USER_QUERY = {
+    "role": "potential",
+    "firstName": {"$exists": True, "$ne": ""},
+}
+
+
 def get_phone_for_potential_user(db) -> str | None:
     """
-    Возвращает номер телефона (10 цифр) любого пользователя с role: 'potential'.
+    Возвращает номер телефона (10 цифр) пользователя с role: 'potential' и полем firstName.
 
     Используется для тестов навигации: вход под существующим потенциальным клиентом
     без прохождения онбординга. Если таких пользователей нет — возвращает None.
     """
     users_col = db["users"]
     user = users_col.find_one(
-        {"role": "potential"},
+        POTENTIAL_USER_QUERY,
         {"phone": 1, "phoneNumber": 1},
         sort=[("_id", -1)],
     )
@@ -77,6 +92,30 @@ def get_phone_for_potential_user(db) -> str | None:
         return None
     raw = user.get("phone") or user.get("phoneNumber")
     return _normalize_phone_to_10_digits(raw)
+
+
+def get_potential_user_display_info(db) -> dict | None:
+    """
+    Возвращает имя и номер телефона в формате для сравнения с UI профиля.
+
+    Используется для проверки соответствия данных на экране «Профиль» данным из БД.
+    Выбирается пользователь с role: 'potential' и полем firstName.
+    Возвращает None, если подходящего пользователя нет.
+    """
+    users_col = db["users"]
+    user = users_col.find_one(
+        POTENTIAL_USER_QUERY,
+        {"fullName": 1, "phone": 1, "phoneNumber": 1},
+        sort=[("_id", -1)],
+    )
+    if not user:
+        return None
+    raw_phone = user.get("phone") or user.get("phoneNumber")
+    phone_10 = _normalize_phone_to_10_digits(raw_phone)
+    return {
+        "fullName": (user.get("fullName") or "").strip(),
+        "phone_display": _format_phone_for_display(phone_10) if phone_10 else "",
+    }
 
 
 def get_available_test_phone(

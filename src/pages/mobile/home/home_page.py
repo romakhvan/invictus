@@ -9,7 +9,7 @@ from appium.webdriver import Remote
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 
-from src.pages.mobile.base_mobile_page import BaseMobilePage
+from src.pages.mobile.shell.base_shell_page import BaseShellPage
 from src.pages.mobile.home.home_state import HomeState
 from src.pages.mobile.home.content import (
     HomeNewUserContent,
@@ -26,7 +26,7 @@ _STATE_DETECTORS = [
 _DETECT_TIMEOUT = 3
 
 
-class HomePage(BaseMobilePage):
+class HomePage(BaseShellPage):
     """
     Оболочка главного экрана: общая валидация и определение типа контента.
     Конкретные элементы и действия — в классах *Content.

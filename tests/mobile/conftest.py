@@ -31,12 +31,12 @@ def potential_user_on_main_screen(mobile_driver, db):
     Драйвер на главном экране в состоянии NEW_USER под существующим пользователем (role: potential).
 
     Только вход: превью → ввод телефона → SMS-код → главная. Без онбординга.
-    Требует в БД хотя бы одного пользователя с role: 'potential'.
+    Требует в БД пользователя с role: 'potential' и полем firstName.
     """
     phone = get_phone_for_potential_user(db)
     if not phone:
         pytest.skip(
-            "В БД нет пользователя с role: 'potential'. "
+            "В БД нет пользователя с role: 'potential' и полем firstName. "
             "Создайте такого пользователя (например, пройдите онбординг в отдельном тесте)."
         )
     run_auth_to_main(mobile_driver, phone)
