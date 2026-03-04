@@ -1,19 +1,15 @@
 """
-Smoke-тест: Заполнение данных нового клиента.
+Smoke-тест: полный флоу онбординга нового клиента (auth → onboarding → главная).
 
 Проверяет:
-- Загрузку страницы ввода имени
-- Наличие всех UI элементов
-- Ввод имени и фамилии
-- Активацию кнопки 'Далее'
-- Выбор даты рождения
-- Выбор пола (Женщина/Мужчина)
-- Выбор роста (см)
-- Выбор веса (кг)
-- Выбор цели тренировок
-- Выбор опыта занятий фитнесом
-- Выбор частоты тренировок в неделю
-- Экран «Профиль готов» и проверка отображаемого имени
+- Запуск приложения и превью
+- Авторизацию (телефон + SMS-код)
+- Загрузку и элементы страницы ввода имени
+- Ввод имени и фамилии, активацию кнопки «Далее»
+- Выбор даты рождения, пола, роста, веса
+- Выбор цели тренировок, опыта и частоты занятий
+- Экран «Профиль готов» и проверку отображаемого имени
+- Главный экран нового пользователя (состояние «Нет абонемента»)
 """
 
 import pytest
@@ -26,32 +22,40 @@ if TYPE_CHECKING:
 from src.config.app_config import MOBILE_APP_PACKAGE
 from src.pages.mobile.auth import PreviewPage, PhoneAuthPage, SmsCodePage
 from src.pages.mobile.onboarding import NamePage, BirthDatePage, GenderPage, HeightPage, WeightPage, FitnessGoalPage, WorkoutExperiencePage, WorkoutFrequencyPage, OnboardingCompletePage
+from src.pages.mobile.home import HomePage, HomeState
+from src.repositories.users_repository import get_available_test_phone
+
+# Базовый номер для поиска свободного (префикс 700 для тестов)
+ONBOARDING_TEST_PHONE_BASE = "7001234564"
 
 
 @pytest.mark.mobile
 @pytest.mark.smoke
-def test_client_name_input(mobile_driver: "Remote"):
+def test_new_client_onboarding_full_flow(mobile_driver: "Remote", db):
     """
-    Smoke-тест: Страница ввода имени и фамилии клиента + выбор даты рождения.
-    
+    Smoke-тест: полный онбординг нового клиента от входа до главного экрана.
+
     Сценарий:
     1. Запуск приложения и пропуск превью
-    2. Прохождение авторизации (телефон + SMS-код)
-    3. Проверка элементов страницы имени
-    4. Заполнение имени и фамилии
-    5. Проверка активности кнопки 'Далее'
-    6. Переход к странице даты рождения
-    7. Проверка элементов страницы даты рождения
-    8. Выбор даты через свайп
-    9. Переход к странице выбора пола
-    10. Выбор пола и нажатие 'Далее'
-    11. Страница выбора роста — выбор значения и 'Далее'
-    12. Страница выбора веса — выбор значения и 'Далее'
+    2. Авторизация (телефон + SMS-код)
+    3. Страница имени — заполнение, проверка кнопки «Далее»
+    4. Дата рождения, пол, рост, вес
+    5. Цель тренировок, опыт занятий, частота тренировок
+    6. Экран «Профиль готов» — проверка имени, переход на главную
+    7. Главный экран нового пользователя (состояние «Нет абонемента»)
     """
     driver = mobile_driver
-    
+
+    test_phone = get_available_test_phone(db, base_phone=ONBOARDING_TEST_PHONE_BASE)
+    if not test_phone:
+        pytest.skip(
+            f"Не найден свободный номер в диапазоне от {ONBOARDING_TEST_PHONE_BASE} "
+            "(все заняты в БД). Тест онбординга требует новый номер."
+        )
+    print(f"📱 Используется свободный номер: {test_phone}")
+
     print("\n" + "=" * 80)
-    print("SMOKE-ТЕСТ: Заполнение данных нового клиента — Страница имени")
+    print("SMOKE-ТЕСТ: Полный онбординг нового клиента (auth → onboarding → главная)")
     print("=" * 80 + "\n")
     
     # Шаг 1: Проверка запуска
@@ -65,7 +69,7 @@ def test_client_name_input(mobile_driver: "Remote"):
     
     # Шаг 3: Авторизация - ввод телефона
     phone = PhoneAuthPage(driver).wait_loaded()
-    phone.enter_phone("7001234568")
+    phone.enter_phone(test_phone)
     phone.click_continue()
     
     # Обработка модалки выбора способа получения кода (если появится)
@@ -176,3 +180,12 @@ def test_client_name_input(mobile_driver: "Remote"):
     print(f"✅ На экране завершения отображается имя: {test_name}")
     complete_page.click_go_to_main()
     print("✅ Онбординг завершён, переход на главную")
+
+    # Шаг 19: Главный экран нового пользователя
+    home = HomePage(driver).wait_loaded()
+    assert home.get_current_home_state() == HomeState.NEW_USER, (
+        "После онбординга должен отображаться главный экран нового пользователя (Нет абонемента)"
+    )
+    home_content = home.get_content()
+    home_content.assert_ui()
+    print("✅ Главный экран нового пользователя отображается корректно")

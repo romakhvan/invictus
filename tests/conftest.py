@@ -88,7 +88,163 @@ def _interactive_debug_menu(driver):
     from appium.webdriver.common.appiumby import AppiumBy
     import os
     from datetime import datetime
-    
+
+    def _collect_and_save_elements(
+        driver,
+        class_name: str,
+        element_name: str,
+        file_prefix: str,
+        filter_prompt: str,
+        value_attr: str,
+        ui_selector_method: str,
+        value_label: str,
+        file_title: str,
+    ) -> None:
+        """Collect elements of a given class, show them, and save generated locators to a file."""
+        try:
+            search_substr = input(
+                f"🔎 Фильтр по {filter_prompt} (Enter — без фильтра): "
+            ).strip().lower()
+
+            elements = driver.find_elements(AppiumBy.CLASS_NAME, class_name)
+            print(f"\n✅ Найдено {element_name} элементов: {len(elements)}\n")
+
+            usable_locators = []
+
+            for el in elements:
+                try:
+                    res_id = (el.get_attribute("resource-id") or "").strip()
+                    if value_attr == "text":
+                        value = (el.text or "").strip()
+                    else:
+                        value = (el.get_attribute(value_attr) or "").strip()
+
+                    content_desc = (el.get_attribute("content-desc") or "").strip()
+                    clickable = (el.get_attribute("clickable") or "").strip()
+                    enabled = (el.get_attribute("enabled") or "").strip()
+                    bounds = (el.get_attribute("bounds") or "").strip()
+
+                    visible = el.is_displayed()
+
+                    if not (value or res_id or content_desc):
+                        continue
+
+                    if search_substr:
+                        haystack = " ".join(
+                            [
+                                value.lower(),
+                                res_id.lower(),
+                                content_desc.lower(),
+                            ]
+                        )
+                        if search_substr not in haystack:
+                            continue
+
+                    locator_repr = None
+                    if res_id:
+                        locator_repr = f'AppiumBy.ID("{res_id}")'
+                    elif content_desc:
+                        locator_repr = f'AppiumBy.ACCESSIBILITY_ID, "{content_desc}"'
+                    elif value:
+                        safe_value = value.replace('"', '\\"')
+                        locator_repr = (
+                            'AppiumBy.ANDROID_UIAUTOMATOR('
+                            f'\'new UiSelector().{ui_selector_method}("{safe_value}")\''
+                            ')'
+                        )
+
+                    usable_locators.append(
+                        {
+                            "value": value,
+                            "res_id": res_id,
+                            "content_desc": content_desc,
+                            "clickable": clickable,
+                            "enabled": enabled,
+                            "bounds": bounds,
+                            "visible": visible,
+                            "locator": locator_repr,
+                        }
+                    )
+                except Exception:
+                    continue
+
+            if not usable_locators:
+                print(f"⚠️ Подходящие {element_name} не найдены.")
+                return
+
+            usable_locators.sort(
+                key=lambda x: (
+                    not x["res_id"],
+                    x["res_id"] or x["content_desc"] or x["value"] or "",
+                )
+            )
+
+            for idx, item in enumerate(usable_locators[:20], 1):
+                print(f"{idx}. {element_name}:")
+                if item["value"]:
+                    print(f"   {value_label}: '{item['value']}'")
+                if item.get("content_desc"):
+                    print(f"   content-desc: '{item['content_desc']}'")
+                if item["res_id"]:
+                    print(f"   resource-id: {item['res_id']}")
+                if item.get("bounds"):
+                    print(f"   bounds: {item['bounds']}")
+                if item.get("clickable"):
+                    print(f"   clickable: {item['clickable']}")
+                if item.get("enabled"):
+                    print(f"   enabled: {item['enabled']}")
+                print(f"   visible: {item['visible']}")
+                if item["locator"]:
+                    print(f"   locator: {item['locator']}\n")
+                else:
+                    print("   locator: (не удалось сгенерировать)\n")
+
+            if len(usable_locators) > 20:
+                print(f"... и еще {len(usable_locators) - 20} элементов")
+                print("💡 Полный список доступен в файле с локаторами")
+
+            try:
+                diagnostics_dir = "diagnostics"
+                os.makedirs(diagnostics_dir, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filepath = os.path.join(
+                    diagnostics_dir, f"{file_prefix}_{timestamp}.txt"
+                )
+
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(f"# {file_title}\n")
+                    f.write(f"# Всего элементов: {len(usable_locators)}\n")
+                    if search_substr:
+                        f.write(f"# Фильтр: {search_substr}\n")
+                    f.write("\n")
+
+                    for idx, item in enumerate(usable_locators, 1):
+                        f.write(f"{idx}. {element_name}\n")
+                        if item["value"]:
+                            f.write(f"   {value_label}: '{item['value']}'\n")
+                        if item.get("content_desc"):
+                            f.write(f"   content-desc: '{item['content_desc']}'\n")
+                        if item["res_id"]:
+                            f.write(f"   resource-id: {item['res_id']}\n")
+                        if item.get("bounds"):
+                            f.write(f"   bounds: {item['bounds']}\n")
+                        if item.get("clickable"):
+                            f.write(f"   clickable: {item['clickable']}\n")
+                        if item.get("enabled"):
+                            f.write(f"   enabled: {item['enabled']}\n")
+                        f.write(f"   visible: {item['visible']}\n")
+                        if item["locator"]:
+                            f.write(f"   locator = {item['locator']}\n")
+                        f.write("\n")
+
+                print(f"\n💾 Локаторы сохранены в файл: {filepath}")
+                print("📂 Откройте файл и скопируйте нужные выражения в Page Object'ы")
+            except Exception as e:
+                print(f"⚠️ Не удалось сохранить локаторы в файл: {e}")
+
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
+
     while True:
         print("\n" + "=" * 80)
         print("🔧 ИНТЕРАКТИВНОЕ МЕНЮ ОТЛАДКИ")
@@ -101,6 +257,9 @@ def _interactive_debug_menu(driver):
         print("  4 - ℹ️  Показать package/activity")
         print("  5 - 📝 Показать все TextView элементы")
         print("  6 - 🔄 Проверить и активировать приложение")
+        print("  7 - 🔘 Показать все Button элементы")
+        print("  8 - 🖼 Показать все ImageView элементы")
+        print("  9 - 👆 Показать кликабельные элементы (все по clickable=true)")
         print("  0 - ❌ Завершить и закрыть приложение")
         print("=" * 80)
         
@@ -289,34 +448,19 @@ def _interactive_debug_menu(driver):
                     print(f"❌ Ошибка: {e}")
             
             elif choice == "5":
-                # Все TextView
+                # Все TextView + сохранение локаторов в файл
                 print("\n📝 Поиск TextView элементов...")
-                try:
-                    text_views = driver.find_elements(AppiumBy.CLASS_NAME, "android.widget.TextView")
-                    print(f"\n✅ Найдено TextView элементов: {len(text_views)}\n")
-                    
-                    for idx, tv in enumerate(text_views[:20], 1):
-                        try:
-                            text = tv.text
-                            res_id = tv.get_attribute("resource-id")
-                            visible = tv.is_displayed()
-                            
-                            if text or res_id:
-                                print(f"{idx}. TextView:")
-                                if text:
-                                    print(f"   text: '{text}'")
-                                if res_id:
-                                    print(f"   resource-id: {res_id}")
-                                print(f"   visible: {visible}\n")
-                        except:
-                            pass
-                    
-                    if len(text_views) > 20:
-                        print(f"... и еще {len(text_views) - 20} элементов")
-                        print("💡 Используйте команду '1' для полной диагностики в файл")
-                        
-                except Exception as e:
-                    print(f"❌ Ошибка: {e}")
+                _collect_and_save_elements(
+                    driver=driver,
+                    class_name="android.widget.TextView",
+                    element_name="TextView",
+                    file_prefix="locators_textview",
+                    filter_prompt="тексту/ID",
+                    value_attr="text",
+                    ui_selector_method="text",
+                    value_label="text",
+                    file_title="Сгенерированные локаторы для TextView",
+                )
             
             elif choice == "6":
                 # Проверка и активация приложения
@@ -367,8 +511,142 @@ def _interactive_debug_menu(driver):
                 except Exception as e:
                     print(f"❌ Ошибка проверки состояния: {e}")
             
+            elif choice == "7":
+                # Все Button + сохранение локаторов в файл
+                print("\n📝 Поиск Button элементов...")
+                _collect_and_save_elements(
+                    driver=driver,
+                    class_name="android.widget.Button",
+                    element_name="Button",
+                    file_prefix="locators_button",
+                    filter_prompt="тексту/ID",
+                    value_attr="text",
+                    ui_selector_method="text",
+                    value_label="text",
+                    file_title="Сгенерированные локаторы для Button",
+                )
+            
+            elif choice == "8":
+                # Все ImageView + сохранение локаторов в файл
+                print("\n📝 Поиск ImageView элементов...")
+                _collect_and_save_elements(
+                    driver=driver,
+                    class_name="android.widget.ImageView",
+                    element_name="ImageView",
+                    file_prefix="locators_imageview",
+                    filter_prompt="content-desc/ID",
+                    value_attr="content-desc",
+                    ui_selector_method="description",
+                    value_label="content-desc",
+                    file_title="Сгенерированные локаторы для ImageView",
+                )
+            
+            elif choice == "9":
+                # Все кликабельные элементы (//*[@clickable='true'])
+                print("\n👆 Поиск кликабельных элементов...")
+                try:
+                    search_substr = input(
+                        "🔎 Фильтр по тексту/desc/ID (Enter — без фильтра): "
+                    ).strip().lower()
+
+                    elements = driver.find_elements(
+                        AppiumBy.XPATH, "//*[@clickable='true']"
+                    )
+                    print(f"\n✅ Найдено кликабельных элементов: {len(elements)}\n")
+
+                    items = []
+                    for el in elements:
+                        try:
+                            cls = (el.get_attribute("className") or el.tag_name or "").strip()
+                            text = (el.text or "").strip()
+                            content_desc = (el.get_attribute("content-desc") or "").strip()
+                            res_id = (el.get_attribute("resource-id") or "").strip()
+                            bounds = (el.get_attribute("bounds") or "").strip()
+
+                            if search_substr:
+                                haystack = " ".join(
+                                    [cls.lower(), text.lower(), content_desc.lower(), res_id.lower()]
+                                )
+                                if search_substr not in haystack:
+                                    continue
+
+                            locator_repr = None
+                            if res_id:
+                                locator_repr = f'AppiumBy.ID("{res_id}")'
+                            elif content_desc:
+                                locator_repr = f'AppiumBy.ACCESSIBILITY_ID, "{content_desc}"'
+                            elif text and "TextView" in cls:
+                                safe = text.replace('"', '\\"')
+                                locator_repr = (
+                                    'AppiumBy.ANDROID_UIAUTOMATOR('
+                                    f'\'new UiSelector().text("{safe}")\''
+                                    ')'
+                                )
+
+                            items.append({
+                                "class": cls,
+                                "text": text,
+                                "content_desc": content_desc,
+                                "resource_id": res_id,
+                                "bounds": bounds,
+                                "locator": locator_repr,
+                            })
+                        except Exception:
+                            continue
+
+                    if not items:
+                        print("⚠️ Кликабельные элементы не найдены (или не прошли фильтр).")
+                        continue
+
+                    for idx, it in enumerate(items[:20], 1):
+                        print(f"{idx}. class: {it['class']}")
+                        if it["text"]:
+                            print(f"   text: '{it['text']}'")
+                        if it["content_desc"]:
+                            print(f"   content-desc: '{it['content_desc']}'")
+                        if it["resource_id"]:
+                            print(f"   resource-id: {it['resource_id']}")
+                        if it["bounds"]:
+                            print(f"   bounds: {it['bounds']}")
+                        if it["locator"]:
+                            print(f"   locator: {it['locator']}")
+                        print()
+
+                    if len(items) > 20:
+                        print(f"... и еще {len(items) - 20} элементов")
+                        print("💡 Полный список в файле с локаторами")
+
+                    diagnostics_dir = "diagnostics"
+                    os.makedirs(diagnostics_dir, exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filepath = os.path.join(
+                        diagnostics_dir, f"locators_clickable_{timestamp}.txt"
+                    )
+                    with open(filepath, "w", encoding="utf-8") as f:
+                        f.write("# Кликабельные элементы (clickable=true)\n")
+                        f.write(f"# Всего: {len(items)}\n")
+                        if search_substr:
+                            f.write(f"# Фильтр: {search_substr}\n")
+                        f.write("\n")
+                        for idx, it in enumerate(items, 1):
+                            f.write(f"{idx}. class: {it['class']}\n")
+                            if it["text"]:
+                                f.write(f"   text: '{it['text']}'\n")
+                            if it["content_desc"]:
+                                f.write(f"   content-desc: '{it['content_desc']}'\n")
+                            if it["resource_id"]:
+                                f.write(f"   resource-id: {it['resource_id']}\n")
+                            if it["bounds"]:
+                                f.write(f"   bounds: {it['bounds']}\n")
+                            if it["locator"]:
+                                f.write(f"   locator = {it['locator']}\n")
+                            f.write("\n")
+                    print(f"\n💾 Сохранено в файл: {filepath}")
+                except Exception as e:
+                    print(f"❌ Ошибка: {e}")
+            
             else:
-                print("❌ Неизвестная команда. Используйте 0-6")
+                print("❌ Неизвестная команда. Используйте 0-9")
                 
         except (KeyboardInterrupt, EOFError):
             print("\n⏹️  Завершение...")
@@ -438,11 +716,18 @@ def pytest_runtest_logreport(report):
     """
     Хук pytest для сбора результатов каждого теста.
     Вызывается для каждой фазы теста (setup, call, teardown).
+    Выводит в консоль результат и время выполнения каждого теста.
     """
     if report.when == "call":  # Учитываем только фазу выполнения теста
         # Получаем путь к файлу теста
         test_file = report.nodeid.split("::")[0] if "::" in report.nodeid else "unknown"
-        
+        test_name = report.nodeid.split("::")[-1] if "::" in report.nodeid else report.nodeid
+
+        # Вывод результата и времени выполнения (требование project rules)
+        status = "PASSED" if report.passed else ("SKIPPED" if report.skipped else "FAILED")
+        duration_s = report.duration if report.duration is not None else 0.0
+        print(f"\nTEST {status}: {test_name} — {duration_s:.1f}s")
+
         # Инициализируем категорию если её нет
         if test_file not in test_results:
             test_results[test_file] = {
@@ -452,7 +737,7 @@ def pytest_runtest_logreport(report):
                 "errors": 0,
                 "duration": 0.0
             }
-        
+
         # Обновляем статистику
         if report.passed:
             test_results[test_file]["passed"] += 1
@@ -460,7 +745,7 @@ def pytest_runtest_logreport(report):
             test_results[test_file]["failed"] += 1
         elif report.skipped:
             test_results[test_file]["skipped"] += 1
-        
+
         # Добавляем время выполнения
         test_results[test_file]["duration"] += report.duration
 

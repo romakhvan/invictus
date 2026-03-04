@@ -7,6 +7,8 @@ import pytest
 import pymongo
 import time
 from src.config.db_config import MONGO_URI_STAGE, DB_NAME
+from src.repositories.users_repository import get_phone_for_potential_user
+from tests.mobile.helpers.onboarding_helpers import run_auth_to_main
 
 
 @pytest.fixture(scope="session")
@@ -21,6 +23,24 @@ def db():
     yield db
     print("\n🧹 Closing Mongo STAGE connection.")
     client.close()
+
+
+@pytest.fixture
+def potential_user_on_main_screen(mobile_driver, db):
+    """
+    Драйвер на главном экране в состоянии NEW_USER под существующим пользователем (role: potential).
+
+    Только вход: превью → ввод телефона → SMS-код → главная. Без онбординга.
+    Требует в БД хотя бы одного пользователя с role: 'potential'.
+    """
+    phone = get_phone_for_potential_user(db)
+    if not phone:
+        pytest.skip(
+            "В БД нет пользователя с role: 'potential'. "
+            "Создайте такого пользователя (например, пройдите онбординг в отдельном тесте)."
+        )
+    run_auth_to_main(mobile_driver, phone)
+    yield mobile_driver
 
 
 # ==================== Автоматический трекинг времени выполнения ====================

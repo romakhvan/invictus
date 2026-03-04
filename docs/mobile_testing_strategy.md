@@ -69,19 +69,68 @@
 
 ```
 tests/mobile/
-├── smoke/              # Критичные тесты
+├── __init__.py
+├── conftest.py
+├── smoke/              # Смоук и критичный функционал
 │   ├── test_app_launch.py
-│   └── test_main_screen.py
-├── navigation/         # Навигация
+│   ├── test_main_screen.py
+│   ├── test_client_onboarding.py
+│   └── test_phone_auth_refactored.py
+├── navigation/         # Навигация по приложению
 │   ├── test_bottom_navigation.py
-│   └── test_menu.py
-├── auth/              # Авторизация
-│   ├── test_login.py
-│   └── test_registration.py
-├── elements/          # Проверка элементов
-│   ├── test_buttons.py
-│   └── test_forms.py
-└── scenarios/         # Пользовательские сценарии
-    └── test_user_flow.py
+│   └── test_navigation_new_user.py   # Smoke: навигация для NEW_USER (вход по potential → обход табов, без онбординга)
+├── elements/           # Базовые проверки UI‑элементов
+│   └── test_buttons.py
+├── scenarios/          # Сквозные пользовательские сценарии
+│   └── test_basic_user_flow.py
+├── flows/              # Сложные бизнес‑флоу
+│   └── rabbit_hole/
+│       └── new_client_buy_rh.py
+├── helpers/            # Вспомогательные функции для тестов
+│   ├── __init__.py
+│   └── auth_helpers.py
+└── utils/              # Технические проверки/утилиты
+    └── test_appium_connection.py
 ```
 
+## Структура страниц (Page Objects)
+
+```
+src/pages/mobile/
+├── base_mobile_page.py   # Базовый класс для всех мобильных страниц
+├── auth/                 # Экраны авторизации
+│   ├── phone_auth_page.py
+│   ├── sms_code_page.py
+│   ├── country_selector_page.py
+│   └── preview_page.py
+├── onboarding/           # Онбординг нового клиента
+│   ├── name_page.py
+│   ├── birth_date_page.py
+│   ├── gender_page.py
+│   ├── fitness_goal_page.py
+│   ├── workout_experience_page.py
+│   ├── workout_frequency_page.py
+│   ├── height_page.py
+│   ├── weight_page.py
+│   └── onboarding_complete_page.py
+├── home/                 # Главный экран (оболочка + контент по типу пользователя)
+│   ├── home_page.py      # Оболочка: wait_loaded(), get_current_home_state(), get_content()
+│   ├── home_state.py     # Enum: NEW_USER, SUBSCRIBED, MEMBER, UNKNOWN
+│   └── content/
+│       ├── home_new_user_content.py    # Контент для нового пользователя
+│       ├── home_subscribed_content.py  # Контент для клиента с подпиской
+│       └── home_member_content.py      # Контент для клиента с абонементом
+├── products/             # Продукты/фичи внутри приложения
+│   └── rabbit_hole_page.py
+└── common/               # Общие компоненты/страницы (пока пусто или под расширение)
+```
+
+### Главная страница (Home)
+
+Главный экран реализован как **оболочка + контент по состоянию**:
+
+- **`HomePage`** — общий вход: проверяет, что открыт один из известных вариантов главного экрана (`assert_ui`), определяет состояние (`get_current_home_state()`) и возвращает нужный объект контента (`get_content()`).
+- **`HomeState`** — enum: `NEW_USER`, `SUBSCRIBED`, `MEMBER`, `UNKNOWN`.
+- **Классы в `home/content/`** — контент для каждого типа пользователя (локаторы и действия). У каждого есть `DETECT_LOCATOR` для автоматического определения состояния.
+
+В тестах: после перехода на главную вызывать `home = HomePage(driver).wait_loaded()`, затем `state = home.get_current_home_state()` или `content = home.get_content()` и работать уже с `content` (например, `content.start_onboarding()` для нового пользователя).
