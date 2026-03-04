@@ -51,13 +51,15 @@ class GenderPage(BaseMobilePage):
 
     def select_female(self) -> None:
         """Выбрать пол «Женщина»."""
-        self.ensure_app_is_active()
+        if self.ensure_app_is_active():
+            self.assert_ui()  # после реактивации перепроверяем, что экран пола открыт
         self.click(self.OPTION_FEMALE)
         print("✅ Выбран пол: Женщина")
 
     def select_male(self) -> None:
         """Выбрать пол «Мужчина»."""
-        self.ensure_app_is_active()
+        if self.ensure_app_is_active():
+            self.assert_ui()
         self.click(self.OPTION_MALE)
         print("✅ Выбран пол: Мужчина")
 
@@ -71,6 +73,7 @@ class GenderPage(BaseMobilePage):
 
     def click_next(self) -> None:
         """Нажать кнопку 'Далее'."""
-        self.ensure_app_is_active()
+        if self.ensure_app_is_active():
+            self.assert_ui()
         self.click(self.NEXT_BUTTON)
         print("✅ Нажата кнопка 'Далее'")

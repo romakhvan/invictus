@@ -71,21 +71,21 @@ class BaseMobilePage(BasePage):
         print(f"📱 Page: {page_title}")
         print("─" * 80)
     
-    def ensure_app_is_active(self, expected_package: Optional[str] = None) -> None:
+    def ensure_app_is_active(self, expected_package: Optional[str] = None) -> bool:
         """
         Проверяет, что приложение в фокусе, и активирует его если свернулось.
         Полезно вызывать перед критическими действиями.
-        
-        Args:
-            expected_package: Ожидаемый package (по умолчанию из конфига)
+
+        Returns:
+            True если приложение пришлось активировать (было свёрнуто).
+            После реактивации вызывающий код должен перепроверить страницу (assert_ui / wait_loaded).
         """
         try:
             from src.config.app_config import MOBILE_APP_PACKAGE
             target_package = expected_package or MOBILE_APP_PACKAGE
-            
+
             current_package = self.driver.current_package
-            
-            # Если текущий package не наш - активируем приложение
+
             if current_package != target_package:
                 print(f"⚠️ Приложение свернулось (текущий: {current_package})")
                 print(f"   Активируем: {target_package}")
@@ -93,8 +93,11 @@ class BaseMobilePage(BasePage):
                 import time
                 time.sleep(1.5)  # Даем время на анимацию открытия
                 print(f"✅ Приложение активировано")
+                return True
+            return False
         except Exception as e:
             print(f"⚠️ Не удалось проверить/активировать приложение: {e}")
+            return False
     
     def wake_and_unlock(self) -> None:
         """
