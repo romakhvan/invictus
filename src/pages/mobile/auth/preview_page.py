@@ -28,7 +28,18 @@ class PreviewPage(BaseMobilePage):
         """Пропуск экрана превью."""
         self.click(self.START_BUTTON)
         print("✅ Превью экран пропущен")
-    
+
+    def wait_loaded(self) -> "PreviewPage":
+        """
+        Ждёт загрузки экрана превью с проверкой, что приложение активно.
+
+        Returns:
+            PreviewPage: загруженная страница.
+        """
+        # Восстанавливаем состояние приложения, если оно свернулось/потеряло фокус.
+        self.check_and_recover_app_state()
+        return super().wait_loaded()
+
     def is_loaded(self) -> bool:
         """
         Устаревший метод. Используйте wait_loaded() вместо него.

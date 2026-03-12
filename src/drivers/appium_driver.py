@@ -248,6 +248,11 @@ class AppiumDriver:
     def close(self):
         """Закрыть драйвер и освободить ресурсы."""
         if self.driver:
-            self.driver.quit()
-            self.driver = None
+            try:
+                self.driver.quit()
+            except Exception as e:
+                # Игнорируем ошибки, если сессия уже завершена на стороне Appium
+                print(f"⚠️ Ошибка при закрытии драйвера: {e}")
+            finally:
+                self.driver = None
 

@@ -42,6 +42,12 @@ def pytest_addoption(parser):
         default=False,
         help="Оставить приложение открытым после завершения тестов (для отладки)"
     )
+    parser.addoption(
+        "--mobile-no-reset",
+        action="store_true",
+        default=False,
+        help="Не сбрасывать данные мобильного приложения между тестами (Appium no_reset=True)",
+    )
 
 
 # ==================== Backend фикстуры ====================
@@ -659,14 +665,23 @@ def appium_driver(request):
     if not APPIUM_AVAILABLE:
         pytest.skip("Appium не установлен. Установите: pip install Appium-Python-Client selenium")
     driver = AppiumDriver()
-    driver.start(no_reset=False)  # Сбрасываем приложение к начальному состоянию
+
+    mobile_no_reset: bool = request.config.getoption("--mobile-no-reset")
+    if mobile_no_reset:
+        driver.start(no_reset=True, full_reset=False)
+    else:
+        driver.start(no_reset=False)  # Сбрасываем приложение к начальному состоянию
     yield driver
-    
-    # Если указан флаг --keepalive, оставляем приложение открытым для отладки
-    if request.config.getoption("--keepalive"):
+
+    # Интерактивное меню до закрытия драйвера: сессия остаётся активной для отладки
+    show_menu = request.config.getoption("--keepalive") or request.node.get_closest_marker("interactive_mobile")
+    if show_menu:
         driver_obj = driver.get_driver()
-        _interactive_debug_menu(driver_obj)
-    # driver.close() закомментирован - сессия завершится автоматически при выходе
+        try:
+            _interactive_debug_menu(driver_obj)
+        except (KeyboardInterrupt, EOFError):
+            print("\n[interactive] Меню прервано пользователем")
+    driver.close()
 
 
 @pytest.fixture(scope="function")

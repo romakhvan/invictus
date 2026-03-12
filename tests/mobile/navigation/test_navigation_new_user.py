@@ -2,7 +2,7 @@
 Smoke-тест навигации для пользователя в состоянии NEW_USER (role: potential).
 
 Проверяет, что под существующим потенциальным клиентом открываются основные экраны:
-вход по номеру и коду → главная → Записи → Статистика → Профиль → Главная.
+вход по номеру и коду → главная → Записи → кнопка QR (сканер) → назад → Статистика → Профиль → Главная.
 Онбординг не выполняется; в БД должен быть пользователь с role: 'potential' и полем firstName.
 Переходы выполняются через BottomNav (.nav) без прямого обращения к локаторам.
 """
@@ -15,18 +15,19 @@ if TYPE_CHECKING:
     from appium.webdriver import Remote
 
 from src.pages.mobile.home import HomePage, HomeState
-from src.repositories.users_repository import get_potential_user_display_info
+from tests.mobile.helpers.profile_helpers import assert_profile_matches_potential_user
 
 
 @pytest.mark.mobile
 @pytest.mark.smoke
+@pytest.mark.interactive_mobile
 def test_navigation_new_user_main_tabs(potential_user_on_main_screen: "Remote", db):
     """
     Smoke: проверка перехода по основным табам для пользователя NEW_USER (potential).
 
     Предусловие: в БД есть пользователь с role: 'potential' и полем firstName.
     Фикстура выполняет вход (превью → телефон → SMS-код) без онбординга. После входа проверяется
-    переход по всем табам: Записи → Статистика → Профиль → Главная.
+    переход по всем табам: Записи → кнопка QR (сканер, назад) → Статистика → Профиль → Главная.
     """
     driver = potential_user_on_main_screen
 
@@ -44,19 +45,24 @@ def test_navigation_new_user_main_tabs(potential_user_on_main_screen: "Remote", 
     # Шаг 2: Записи
     bookings = home.nav.open_bookings()
 
-    # Шаг 3: Статистика
+    # Шаг 2.5: Кнопка QR — экран сканера как отдельный Page Object
+    qr = bookings.nav.open_qr()
+    qr.assert_texts_present()
+    bookings = qr.close()
+    print("✅ Экран QR-кода открыт, проверен и закрыт, вернулись на 'Записи'")
+
+    # После закрытия снова должен открыться экран «Записи»
+    bookings.wait_loaded()
+    print("✅ После закрытия QR снова открыт экран 'Записи'")
+
+    # # Шаг 3: Статистика
     stats = bookings.nav.open_stats()
 
-    # Шаг 4: Профиль — проверка имени и телефона по БД
+    # # Шаг 4: Профиль — проверка имени и телефона по БД
     profile = stats.nav.open_profile()
-    user_info = get_potential_user_display_info(db)
-    if user_info:
-        profile.assert_profile_data_matches_db(
-            user_info["fullName"],
-            user_info["phone_display"],
-        )
+    assert_profile_matches_potential_user(db, profile)
 
-    # Шаг 5: Возврат на главную
+    # # Шаг 5: Возврат на главную
     home = profile.nav.open_main()
     assert home.get_current_home_state() == HomeState.NEW_USER, (
         "После обхода табов ожидалась снова главная (NEW_USER)"

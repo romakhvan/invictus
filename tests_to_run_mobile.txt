@@ -1,0 +1,50 @@
+# Запуск:
+#   python run_tests_mobile.py
+# С другим файлом списка:
+#   python run_tests_mobile.py -f tests_to_run_mobile.txt
+# Без Allure:
+#   python run_tests_mobile.py --no-allure
+#
+# ALLURE: off
+# OPEN_REPORT: off
+# INTERACTIVE: on
+
+# Доступные опции (обрабатываются скриптом run_tests_mobile.py):
+#   # PYTEST_ARGS: -v -s
+#       Явно задать аргументы pytest (например, -s для интерактивного меню).
+#   # ALLURE: on|off
+#       Включить/выключить генерацию Allure-результатов.
+#   # OPEN_REPORT: on|off
+#       Включить/выключить автоматическое открытие Allure-отчёта.
+#   # INTERACTIVE: on|off
+#       При on добавляет -s к pytest (для _interactive_debug_menu и input()).
+#
+# Пример (интерактивный режим + дефолтные флаги pytest):
+#   # INTERACTIVE: on
+#
+# Список мобильных тестов для запуска
+# Строки, начинающиеся с #, игнорируются (кроме директив выше)
+# Пути — относительно корня проекта (как в pytest)
+#
+# --- Infra (Appium connection, app launch) ---
+# tests\mobile\infra\test_appium_connection.py
+# tests\mobile\infra\test_app_launch.py
+#
+# --- Auth ---
+# tests\mobile\auth\test_phone_auth_refactored.py
+#
+# --- Onboarding ---
+# tests\mobile\onboarding\test_client_onboarding.py
+#
+# --- Home ---
+# tests\mobile\home\test_main_screen.py
+# tests\mobile\home\test_home_entrypoints_new_user.py | -v -m mobile --mobile-no-reset
+# tests\mobile\home\test_home_entrypoints_new_user.py::test_home_new_user_rabbit_hole_opens_overlay | -v -m mobile --mobile-no-reset
+tests\mobile\home\test_home_entrypoints_new_user.py | -v -m mobile --mobile-no-reset -k club_card --keepalive
+#
+# --- Navigation ---
+# tests\mobile\navigation\test_bottom_navigation.py
+# tests\mobile\navigation\test_navigation_new_user.py
+#
+# --- Flows ---
+# tests\mobile\flows\rabbit_hole\new_client_buy_rh.py

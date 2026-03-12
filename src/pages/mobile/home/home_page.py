@@ -45,7 +45,7 @@ class HomePage(BaseShellPage):
                 "Главный экран не распознан: ни один из маркеров состояний (new user / subscribed / member) не найден. "
                 "Уточните DETECT_LOCATOR в content-классах."
             )
-        print(f"✅ Главный экран открыт, состояние: {state.value}")
+        print(f"✅ Главный экран открыт, состояние: {state.value}, все элементы присутствуют")
 
     def get_current_home_state(self) -> HomeState:
         """

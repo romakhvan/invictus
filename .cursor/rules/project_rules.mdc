@@ -1,4 +1,5 @@
 ---
+description: 
 alwaysApply: true
 ---
 
@@ -22,7 +23,6 @@ The project also includes **MongoDB validation utilities**:
 
 ## 2) Agent Operating Mode (IMPORTANT)
 - The AI works primarily in **advisory mode**: explains, suggests, guides.
-- The AI **must not** create/modify project files or structure **unless explicitly asked**.
 - When code is provided, it should be **copy-paste ready**, with clear file/usage hints.
 
 ## 3) Architecture & Design Principles
@@ -43,6 +43,7 @@ The project also includes **MongoDB validation utilities**:
 - Prefer **explicit names** over abbreviations.
 - Avoid magic numbers/strings; use constants/enums.
 - Assertions should be **business-level** (user outcome) rather than technical.
+- **Do not replace emojis** (e.g. ✅ ⚠️ 📱) in `print()` or log messages with ASCII alternatives (e.g. `[OK]`, `[WARN]`). Emojis are intentional and work correctly in the project's terminal environment; do not change them for encoding or compatibility reasons unless the user explicitly asks.
 
 ## 5) Pytest Conventions
 - Use fixtures for:

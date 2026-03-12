@@ -5,6 +5,8 @@
 import time
 from typing import TYPE_CHECKING
 
+from selenium.common.exceptions import TimeoutException
+
 if TYPE_CHECKING:
     from appium.webdriver import Remote
 
@@ -30,27 +32,58 @@ def run_auth_to_main(driver: "Remote", phone: str) -> None:
     По завершении драйвер на главном экране (ожидается состояние NEW_USER для potential).
     Используется для тестов навигации под существующим пользователем (role: potential).
 
+    Делает до двух попыток: если по пути приложение свернулось и после восстановления
+    мы снова оказываемся на превью, флоу авторизации запускается заново.
+
     Args:
         driver: Appium WebDriver
         phone: Номер телефона (10 цифр), существующий в БД (например potential)
     """
-    preview = PreviewPage(driver).wait_loaded()
-    preview.skip_preview()
+    last_error: Exception | None = None
 
-    phone_page = PhoneAuthPage(driver).wait_loaded()
-    phone_page.enter_phone(phone)
-    phone_page.click_continue()
-    phone_page.handle_code_delivery_modal(method="SMS")
+    for attempt in range(2):
+        try:
+            if attempt > 0:
+                print("\n🔁 Повторная попытка авторизации до главного экрана (run_auth_to_main)")
 
-    sms = SmsCodePage(driver).wait_loaded()
-    sms.enter_code()
-    sms.click_confirm()
+            # Всегда начинаем флоу с превью: если приложение перезапустилось,
+            # PreviewPage(wait_loaded) просто откроется ещё раз.
+            preview = PreviewPage(driver).wait_loaded()
+            preview.skip_preview()
 
-    home = HomePage(driver).wait_loaded()
-    if home.get_current_home_state() != HomeState.NEW_USER:
-        raise AssertionError(
-            "После входа ожидалось состояние главного экрана NEW_USER (potential)"
-        )
+            phone_page = PhoneAuthPage(driver).wait_loaded()
+            phone_page.enter_phone(phone)
+            phone_page.click_continue()
+            phone_page.handle_code_delivery_modal(method="SMS")
+
+            sms = SmsCodePage(driver).wait_loaded()
+            sms.enter_code()
+            sms.click_confirm()
+
+            home = HomePage(driver).wait_loaded()
+            if home.get_current_home_state() != HomeState.NEW_USER:
+                raise AssertionError(
+                    "После входа ожидалось состояние главного экрана NEW_USER (potential)"
+                )
+
+            # Успешная авторизация — выходим из функции
+            return
+
+        except (TimeoutException, AssertionError) as exc:
+            last_error = exc
+            # Если это первая попытка — пробуем ещё раз с нуля.
+            if attempt == 0:
+                print(
+                    "\n⚠️ Сбой при авторизации до главного экрана "
+                    "(возможно, приложение перезапустилось или свернулось). Пробуем ещё раз..."
+                )
+                continue
+            # Вторая неудачная попытка — пробрасываем ошибку дальше.
+            raise
+
+    # Теоретически сюда не дойдём, но на всякий случай
+    if last_error:
+        raise last_error
 
 
 def run_full_onboarding_to_main(driver: "Remote", test_phone: str) -> None:

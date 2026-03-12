@@ -2,27 +2,25 @@
 Базовый класс для мобильных Page Objects (Appium).
 """
 
-# Импорт класса Remote из appium.webdriver предоставляет тип WebDriver для управления мобильным приложением (Appium).
+from typing import Dict, Optional, Tuple
+
 from appium.webdriver import Remote
-from appium.webdriver.common.appiumby import AppiumBy
-from src.pages.base_page import BasePage
-from typing import Optional, Union, Dict, Tuple, TypeAlias
-
-Locator: TypeAlias = Tuple[Union[AppiumBy, str], str]
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+
+from src.pages.base_page import BasePage
+from src.pages.mobile.base_content_block import Locator, MobileInteractionMixin
 
 
-class BaseMobilePage(BasePage):
-    """Базовый класс для мобильных страниц."""
-    
+class BaseMobilePage(BasePage, MobileInteractionMixin):
+    """Базовый класс для мобильных страниц (самостоятельный экран)."""
+
     page_title: Optional[str] = None  # Переопределяется в дочерних классах
-    
+
     def __init__(self, driver: Remote):
         """
         Инициализация мобильной страницы.
-        
+
         Args:
             driver: Appium WebDriver объект
         """
@@ -30,35 +28,6 @@ class BaseMobilePage(BasePage):
         self.driver: Remote = driver
         self.wait = WebDriverWait(driver, 20)
 
-    def _wait(self, timeout: Optional[int] = None) -> WebDriverWait:
-        """Если timeout None — используется дефолтный wait (20s), иначе создаётся новый WebDriverWait."""
-        if timeout is None:
-            return self.wait
-        return WebDriverWait(self.driver, timeout)
-    
-    def find_element(self, locator: Locator):
-        """Найти элемент."""
-        by, value = locator
-        return self.driver.find_element(by, value)
-    
-    def find_elements(self, locator: Locator):
-        """Найти элементы."""
-        by, value = locator
-        return self.driver.find_elements(by, value)
-    
-    def click(self, locator: Locator, timeout: Optional[int] = None):
-        """Клик по элементу."""
-        wait = self._wait(timeout)
-        element = wait.until(EC.element_to_be_clickable(locator))
-        element.click()
-    
-    def send_keys(self, locator: Locator, text: str, timeout: Optional[int] = None):
-        """Ввод текста в поле."""
-        wait = self._wait(timeout)
-        element = wait.until(EC.presence_of_element_located(locator))
-        element.clear()
-        element.send_keys(text)
-    
     @staticmethod
     def print_page_header(page_title: str) -> None:
         """
@@ -154,118 +123,6 @@ class BaseMobilePage(BasePage):
             print("🔄 Состояние приложения восстановлено")
         
         return not had_issues
-    
-    def get_text(self, locator: Locator, timeout: Optional[int] = None) -> str:
-        """Получить текст элемента."""
-        wait = self._wait(timeout)
-        element = wait.until(EC.presence_of_element_located(locator))
-        return element.text
-    
-    def is_visible(self, locator: Locator, timeout: Optional[int] = None) -> bool:
-        """Проверка видимости элемента."""
-        try:
-            wait = self._wait(timeout if timeout is not None else 5)
-            wait.until(EC.visibility_of_element_located(locator))
-            return True
-        except TimeoutException:
-            return False
-    
-    def swipe(self, start_x: int, start_y: int, end_x: int, end_y: int, duration: int = 1000):
-        """Свайп по экрану."""
-        self.driver.swipe(start_x, start_y, end_x, end_y, duration)
-    
-    @staticmethod
-    def _locator_str(locator: Locator) -> str:
-        """Строковое представление локатора для сообщений об ошибках."""
-        by, value = locator
-        by_name = getattr(by, "name", str(by))
-        return f"{by_name} | {value}"
-
-    def _raise_timeout_with_context(
-        self,
-        locator: Locator,
-        msg: str,
-        timeout: int,
-        take_screenshot_on_timeout: bool = True,
-        cause: Optional[Exception] = None,
-    ) -> None:
-        """Формирует детальное сообщение при таймауте и по возможности делает скриншот."""
-        locator_str = self._locator_str(locator)
-        page = getattr(self, "page_title", None) or self.__class__.__name__
-        error_text = (
-            f"[{page}] TIMEOUT {timeout}s: {msg}\nLocator: {locator_str}"
-        )
-        if take_screenshot_on_timeout:
-            try:
-                from datetime import datetime
-                from src.utils.ui_helpers import take_screenshot
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                safe_page = page.replace(" ", "_").replace("(", "").replace(")", "")
-                path = take_screenshot(
-                    self.driver,
-                    f"timeout_{safe_page}_{ts}.png"
-                )
-                error_text += f"\nScreenshot: {path}"
-            except Exception:
-                pass
-        exc = TimeoutException(error_text)
-        if cause is not None:
-            raise exc from cause
-        raise exc
-
-    def wait_visible(
-        self,
-        locator: Locator,
-        error_message: str = "Element not found",
-        timeout: int = 20,
-        take_screenshot_on_timeout: bool = True,
-    ):
-        """
-        Ждёт видимости элемента и выбрасывает исключение с понятным сообщением.
-        
-        Args:
-            locator: Tuple (By, value)
-            error_message: Сообщение об ошибке (что ожидали)
-            timeout: Таймаут ожидания
-            take_screenshot_on_timeout: Делать скриншот при таймауте
-        
-        Raises:
-            TimeoutException: С детальным сообщением (страница, локатор, скриншот)
-        """
-        try:
-            wait = self._wait(timeout)
-            return wait.until(EC.visibility_of_element_located(locator))
-        except TimeoutException as e:
-            self._raise_timeout_with_context(
-                locator, error_message, timeout, take_screenshot_on_timeout, cause=e
-            )
-
-    def wait_present(
-        self,
-        locator: Locator,
-        error_message: str = "Element not found",
-        timeout: int = 20,
-        take_screenshot_on_timeout: bool = True,
-    ):
-        """
-        Ждёт присутствия элемента в DOM (не обязательно видимого).
-        
-        Args:
-            locator: Tuple (By, value)
-            error_message: Сообщение об ошибке (что ожидали)
-            timeout: Таймаут ожидания
-            take_screenshot_on_timeout: Делать скриншот при таймауте
-        
-        Raises:
-            TimeoutException: С детальным сообщением (страница, локатор, скриншот)
-        """
-        try:
-            wait = self._wait(timeout)
-            return wait.until(EC.presence_of_element_located(locator))
-        except TimeoutException as e:
-            self._raise_timeout_with_context(
-                locator, error_message, timeout, take_screenshot_on_timeout, cause=e
-            )
 
     def wait_loaded(self):
         """

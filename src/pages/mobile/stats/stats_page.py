@@ -48,4 +48,4 @@ class StatsPage(BaseShellPage):
             self.CTA_SELECT_SUBSCRIPTION,
             "Кнопка 'Выбрать абонемент' не найдена",
         )
-        print("✅ Экран 'Статистика' открыт")
+        print("✅ Экран 'Статистика' открыт, все элементы присутствуют")

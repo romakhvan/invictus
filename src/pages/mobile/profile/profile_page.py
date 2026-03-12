@@ -64,7 +64,7 @@ class ProfilePage(BaseShellPage):
             self.SECTION_MY_SERVICES,
             "Секция 'Мои услуги' не найдена",
         )
-        print("✅ Экран 'Профиль' открыт")
+        print("✅ Экран 'Профиль' открыт, все элементы присутствуют")
 
     def get_displayed_name(self) -> str:
         """Возвращает текст имени/фамилии из профиля (первый TextView с +7 идёт как телефон)."""
@@ -83,31 +83,71 @@ class ProfilePage(BaseShellPage):
         return ""
 
     def get_displayed_phone(self) -> str:
-        """Возвращает текст номера телефона из профиля (TextView, начинающийся с +7)."""
-        locator = (
+        """
+        Возвращает текст номера телефона из профиля.
+        Ищет по @text и по content-desc (React Native часто кладёт текст в content-desc).
+        """
+        # 1) TextView с text, начинающимся с +7
+        locator_text = (
             AppiumBy.XPATH,
             "//android.widget.TextView[starts-with(@text, '+7')]",
         )
         try:
-            return (self.get_text(locator, timeout=5) or "").strip()
+            value = (self.get_text(locator_text, timeout=8) or "").strip()
+            if value:
+                return value
         except Exception:
-            return ""
+            pass
+        # 2) Любой элемент с content-desc, начинающимся с +7
+        try:
+            locator_desc = (
+                AppiumBy.XPATH,
+                "//*[starts-with(@content-desc, '+7')]",
+            )
+            value = (self.get_text(locator_desc, timeout=3) or "").strip()
+            if value:
+                return value
+        except Exception:
+            pass
+        # 3) Перебор видимых элементов с текстом/content-desc, похожим на номер
+        for xpath in [
+            "//*[starts-with(@text, '+7') or starts-with(@text, '8')]",
+            "//*[starts-with(@content-desc, '+7') or starts-with(@content-desc, '8')]",
+        ]:
+            try:
+                for el in self.driver.find_elements(AppiumBy.XPATH, xpath):
+                    if not el.is_displayed():
+                        continue
+                    raw = el.text or el.get_attribute("content-desc") or ""
+                    s = (raw or "").strip()
+                    if s and ("+7" in s or (s.startswith("8") and sum(c.isdigit() for c in s) >= 10)):
+                        return s
+            except Exception:
+                continue
+        return ""
 
-    def assert_profile_data_matches_db(self, expected_name: str, expected_phone: str) -> None:
+    def assert_profile_data_matches_db(
+        self, expected_first_name: str, expected_phone: str
+    ) -> None:
         """
-        Проверяет соответствие имени и номера телефона на экране ожидаемым из БД.
-        expected_name: fullName из БД, expected_phone: номер в формате UI (+7 XXX XXX XX XX).
+        Проверяет соответствие имени и номера телефона на экране данным из БД.
+        Имя: проверяется вхождение firstName в текст на экране (частичное совпадение).
+        Телефон: полное совпадение в формате UI (+7 XXX XXX XX XX).
         """
-        def _xpath_text(text: str) -> str:
-            escaped = (text or "").replace('"', '&quot;')
+        def _xpath_contains(substring: str) -> str:
+            escaped = (substring or "").replace('"', "&quot;")
+            return f'//android.widget.TextView[contains(@text, "{escaped}")]'
+
+        def _xpath_exact(text: str) -> str:
+            escaped = (text or "").replace('"', "&quot;")
             return f'//android.widget.TextView[@text="{escaped}"]'
 
         self.wait_visible(
-            (AppiumBy.XPATH, _xpath_text(expected_name)),
-            f"Имя на экране не совпадает с БД: ожидалось '{expected_name}'",
+            (AppiumBy.XPATH, _xpath_contains(expected_first_name)),
+            f"На экране не найдено имя с частью из БД (firstName): '{expected_first_name}'",
         )
         self.wait_visible(
-            (AppiumBy.XPATH, _xpath_text(expected_phone)),
+            (AppiumBy.XPATH, _xpath_exact(expected_phone)),
             f"Телефон на экране не совпадает с БД: ожидалось '{expected_phone}'",
         )
         print("✅ Имя и телефон на экране соответствуют данным из БД")

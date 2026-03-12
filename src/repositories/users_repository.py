@@ -26,6 +26,26 @@ def find_users_with_birthday(db, target_date):
 
     return birthday_users
 
+def get_user_role_by_phone(db, phone_from_ui: str):
+    """
+    Возвращает роль пользователя по номеру телефона (как отображается в UI или 10 цифр).
+
+    phone_from_ui: номер с экрана (например "+7 700 123 45 64") или 10 цифр.
+    Возвращает значение поля role из БД или None, если пользователь не найден.
+    """
+    phone_10 = _normalize_phone_to_10_digits(phone_from_ui)
+    if not phone_10:
+        return None
+    users_col = db["users"]
+    variants = [phone_10, "7" + phone_10, "+7" + phone_10]
+    query = {"$or": [
+        {"phone": {"$in": variants}},
+        {"phoneNumber": {"$in": variants}},
+    ]}
+    user = users_col.find_one(query, {"role": 1})
+    return user.get("role") if user else None
+
+
 def user_exists_by_phone(db, phone_digits: str) -> bool:
     """
     Проверяет, есть ли в БД пользователь с указанным номером телефона.
@@ -94,18 +114,47 @@ def get_phone_for_potential_user(db) -> str | None:
     return _normalize_phone_to_10_digits(raw)
 
 
+def get_user_display_info_by_phone(db, phone_from_ui: str) -> dict | None:
+    """
+    Возвращает имя и номер в формате для UI по номеру телефона (как на экране).
+
+    Используется для сверки профиля: данные на экране сравниваются с тем же пользователем в БД.
+    Возвращает None, если пользователь с таким номером не найден.
+    """
+    phone_10 = _normalize_phone_to_10_digits(phone_from_ui)
+    if not phone_10:
+        return None
+    users_col = db["users"]
+    variants = [phone_10, "7" + phone_10, "+7" + phone_10]
+    query = {"$or": [
+        {"phone": {"$in": variants}},
+        {"phoneNumber": {"$in": variants}},
+    ]}
+    user = users_col.find_one(query, {"fullName": 1, "firstName": 1, "role": 1, "phone": 1, "phoneNumber": 1})
+    if not user:
+        return None
+    raw_phone = user.get("phone") or user.get("phoneNumber")
+    phone_10 = _normalize_phone_to_10_digits(raw_phone)
+    return {
+        "fullName": (user.get("fullName") or "").strip(),
+        "firstName": (user.get("firstName") or "").strip(),
+        "role": (user.get("role") or "").strip(),
+        "phone_display": _format_phone_for_display(phone_10) if phone_10 else "",
+    }
+
+
 def get_potential_user_display_info(db) -> dict | None:
     """
     Возвращает имя и номер телефона в формате для сравнения с UI профиля.
 
-    Используется для проверки соответствия данных на экране «Профиль» данным из БД.
-    Выбирается пользователь с role: 'potential' и полем firstName.
+    Выбирается пользователь с role: 'potential' и полем firstName (последний по _id).
+    Для сверки по номеру с экрана используйте get_user_display_info_by_phone(db, phone_ui).
     Возвращает None, если подходящего пользователя нет.
     """
     users_col = db["users"]
     user = users_col.find_one(
         POTENTIAL_USER_QUERY,
-        {"fullName": 1, "phone": 1, "phoneNumber": 1},
+        {"fullName": 1, "firstName": 1, "phone": 1, "phoneNumber": 1},
         sort=[("_id", -1)],
     )
     if not user:
@@ -114,6 +163,7 @@ def get_potential_user_display_info(db) -> dict | None:
     phone_10 = _normalize_phone_to_10_digits(raw_phone)
     return {
         "fullName": (user.get("fullName") or "").strip(),
+        "firstName": (user.get("firstName") or "").strip(),
         "phone_display": _format_phone_for_display(phone_10) if phone_10 else "",
     }
 
