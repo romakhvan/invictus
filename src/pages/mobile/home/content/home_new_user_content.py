@@ -126,5 +126,10 @@ class HomeNewUserContent(BaseContentBlock):
 
         center_x = (924 + 1032) // 2
         center_y = (93 + 201) // 2
-        self.driver.tap([(center_x, center_y)], 100)
+        self.tap_by_coordinates(
+            center_x,
+            center_y,
+            duration_ms=100,
+            action_name="Открыт экран уведомлений (тап по иконке)",
+        )
         return NotificationsPage(self.driver).wait_loaded()

@@ -1,37 +1,8 @@
 """
 Тест для анализа транзакций с 14:55 по местному времени (исключая source='pos') с группировкой по instalmentType.
 """
-import pytest
-import pymongo
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
-
-from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
-
-
-# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
-# Выберите окружение базы данных: 'prod' или 'stage'
-ENVIRONMENT = 'prod'  # 'prod' или 'stage'
-# ============================================
-
-
-@pytest.fixture(scope="session")
-def db():
-    """
-    Фикстура для подключения к MongoDB.
-    Окружение определяется переменной ENVIRONMENT.
-    """
-    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
-    env_name = ENVIRONMENT.upper()
-    
-    print(f"\n🔌 Подключение к MongoDB {env_name}...")
-    client = pymongo.MongoClient(mongo_uri)
-    database = client[DB_NAME]
-    
-    yield database
-    
-    print(f"\n🔌 Закрытие соединения с MongoDB {env_name}.")
-    client.close()
 
 
 def test_recent_transactions_grouped_by_instalment_type(db):

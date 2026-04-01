@@ -37,6 +37,18 @@ except ImportError:
 def pytest_addoption(parser):
     """Добавляем кастомные опции командной строки."""
     parser.addoption(
+        "--backend-env",
+        default="prod",
+        choices=["prod", "stage"],
+        help="Окружение MongoDB для backend тестов (prod или stage). По умолчанию: prod",
+    )
+    parser.addoption(
+        "--period-days",
+        type=int,
+        default=7,
+        help="Период анализа в днях для backend тестов. По умолчанию: 7",
+    )
+    parser.addoption(
         "--keepalive",
         action="store_true",
         default=False,
@@ -48,6 +60,17 @@ def pytest_addoption(parser):
         default=False,
         help="Не сбрасывать данные мобильного приложения между тестами (Appium no_reset=True)",
     )
+    parser.addoption(
+        "--mobile-ui-logs",
+        action="store_true",
+        default=False,
+        help="Включить подробные UI-логи Page Objects (WAIT/CLICK/VISIBLE и т.д.)",
+    )
+
+
+def pytest_configure(config):
+    """Синхронизирует флаги pytest с runtime-настройками логирования."""
+    os.environ["MOBILE_UI_LOGS"] = "1" if config.getoption("--mobile-ui-logs") else "0"
 
 
 # ==================== Backend фикстуры ====================
@@ -689,10 +712,10 @@ def mobile_driver(appium_driver):
     """Фикстура для получения Appium WebDriver объекта."""
     driver = appium_driver.get_driver()
     
-    # ОПЦИОНАЛЬНО: Программный перезапуск приложения перед каждым тестом
-    # Может быть избыточен, если используется no_reset=False в драйвере
-    # Включите если нужен явный terminate + activate перед каждым тестом
-    ENABLE_APP_RESTART = False  # Измените на True для принудительного перезапуска
+    # Опциональный программный перезапуск приложения перед каждым тестом.
+    # По умолчанию выключен: AppiumDriver.start(...) уже запускает приложение.
+    # Двойной запуск (start + terminate/activate) замедляет тесты и может вносить флак.
+    ENABLE_APP_RESTART = False
     
     if ENABLE_APP_RESTART:
         try:
@@ -722,6 +745,8 @@ def mobile_driver(appium_driver):
 
 
 # ==================== Telegram уведомления ====================
+
+TELEGRAM_ENABLED = False  # переключить в True чтобы включить отправку
 
 # Глобальное хранилище результатов тестов по категориям
 test_results = {}
@@ -770,6 +795,9 @@ def pytest_sessionfinish(session, exitstatus):
     Хук pytest, вызываемый после завершения всех тестов.
     Отправляет результаты в Telegram.
     """
+    if not TELEGRAM_ENABLED:
+        return
+
     if not test_results:
         print("\n⚠️ Нет результатов тестов для отправки")
         return

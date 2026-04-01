@@ -2,47 +2,18 @@
 Тесты для проверки push-уведомлений у клиентов с гостевыми визитами.
 """
 import json
-import pytest
-import pymongo
 import psycopg2
 import pytest_check as check
 from pathlib import Path
 from bson import ObjectId
 from datetime import datetime
 from src.config.db_config import (
-    MONGO_URI_PROD,
-    MONGO_URI_STAGE,
-    DB_NAME,
     POSTGRES_HOST,
     POSTGRES_PORT,
     POSTGRES_USER,
     POSTGRES_PASSWORD,
     POSTGRES_DATABASE
 )
-
-
-# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
-# Выберите окружение базы данных: 'prod' или 'stage'
-ENVIRONMENT = 'prod'  # 'prod' или 'stage'
-# ============================================
-
-
-@pytest.fixture(scope="session")
-def db():
-    """
-    Фикстура для подключения к MongoDB.
-    Окружение определяется переменной ENVIRONMENT.
-    """
-    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
-    env_name = ENVIRONMENT.upper()
-    
-    print(f"\nConnecting to MongoDB {env_name}...")
-    client = pymongo.MongoClient(mongo_uri)
-    db = client[DB_NAME]
-    yield db
-    print(f"\nClosing Mongo {env_name} connection.")
-    client.close()
-
 
 @pytest.fixture(scope="session")
 def pg_conn():

@@ -68,7 +68,3 @@ def test_navigation_new_user_main_tabs(potential_user_on_main_screen: "Remote", 
         "После обхода табов ожидалась снова главная (NEW_USER)"
     )
     print("✅ Возврат на главную (NEW_USER), навигация пройдена")
-
-    # Интерактивное меню отладки после прохождения теста
-    from tests.conftest import _interactive_debug_menu
-    _interactive_debug_menu(driver)

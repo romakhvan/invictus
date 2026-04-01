@@ -1,0 +1,11 @@
+# Список web-тестов для запуска
+# Запуск: python run_tests.py  (MODE = "web" в run_tests.py)
+#
+# Формат: путь к тесту | флаги pytest (флаги необязательны)
+#   tests\web\test_foo.py | -v -k bar
+
+# --- Web (invictus.kz) ---
+tests\web\test_home_page.py
+tests\web\test_clubs_page.py
+# tests\web\test_auth_page.py
+# tests\web\test_navigation.py

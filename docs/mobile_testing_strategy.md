@@ -87,6 +87,7 @@ python run_tests_mobile.py
 - **Файл списка:** по умолчанию `tests_to_run_mobile.txt`. Другой файл: `python run_tests_mobile.py -f <файл>`.
 - **Без Allure:** `python run_tests_mobile.py --no-allure`.
 - В `tests_to_run_mobile.txt` поддерживаются директивы: `ALLURE`, `OPEN_REPORT`, `INTERACTIVE`, `PYTEST_ARGS`. Строки с путями — относительные пути к тестам (как в pytest); после `|` можно указать аргументы pytest для строки (например `-v -m mobile --mobile-no-reset`).
+- Важно: **не запускайте** `tests_to_run_mobile.txt` командой `python tests_to_run_mobile.txt` — это не Python-скрипт, а список для `run_tests_mobile.py`.
 
 Прямой запуск pytest для мобильных тестов:
 
@@ -95,6 +96,13 @@ pytest tests/mobile/ -v -m mobile
 ```
 
 Для отладки с сохранением состояния приложения между тестами: `--mobile-no-reset`. Фикстуры и маркеры описаны в `tests/mobile/conftest.py`.
+
+Примеры точечного запуска:
+
+```bash
+pytest tests/mobile/bookings/test_bookings_entrypoints.py -v -m mobile --mobile-no-reset
+pytest tests/mobile/bookings/test_bookings_entrypoints.py -v -m mobile --mobile-no-reset -k personal --keepalive
+```
 
 ## Рекомендуемый порядок реализации
 
@@ -121,7 +129,7 @@ pytest tests/mobile/ -v -m mobile
 tests/mobile/
 ├── __init__.py
 ├── conftest.py
-├── helpers/                    # Вспомогательные функции для тестов
+├── helpers/                    # Временные flow-оркестраторы (без локаторов и низкоуровневых действий)
 │   ├── __init__.py
 │   ├── auth_helpers.py
 │   ├── profile_helpers.py
@@ -136,6 +144,8 @@ tests/mobile/
 ├── home/                       # Главный экран: состояния, точки входа
 │   ├── test_main_screen.py
 │   └── test_home_entrypoints_new_user.py
+├── bookings/                   # Таб «Записи»: точки входа/разделы
+│   └── test_bookings_entrypoints.py
 ├── navigation/                 # Навигация, таббар
 │   ├── test_bottom_navigation.py
 │   └── test_navigation_new_user.py
@@ -162,6 +172,36 @@ pytest tests/mobile/ -m smoke                     # только smoke
 pytest tests/mobile/home/ -m "smoke or regression"
 pytest tests/mobile/ -m mobile                    # все мобильные
 ```
+
+### Граница ответственности: `helpers/` vs Page Objects
+
+Чтобы не было двух источников истины, действует правило:
+
+- **Page Objects (`src/pages/mobile/...`)**: локаторы, ожидания, UI-действия, проверка что экран открыт (`wait_loaded` / page validation).
+- **Fixtures (`tests/mobile/conftest.py`)**: подготовка окружения/состояния (driver, db, пользователь, preconditions).
+- **Helpers (`tests/mobile/helpers/`)**: только orchestration-level шаги (сквозной flow из уже готовых page-методов), без новых локаторов и без прямой работы с `driver.find_element`.
+
+Запрещено в `helpers/`:
+
+- дублировать методы страниц (например, отдельный ввод телефона при уже существующем `PhoneAuthPage.enter_phone`);
+- хранить XPath/CSS/Appium-локаторы;
+- реализовывать "технические" ожидания, которые должны жить в page-слое;
+- использовать `time.sleep()` вместо page-level ожиданий.
+
+Разрешено в `helpers/` (как временный слой):
+
+- собирать end-to-end шаги в сценарий (`preview -> auth -> sms -> home`);
+- вызывать только публичные методы Page Objects;
+- содержать минимальную retry-логику сценария (если она не привязана к одному экрану).
+
+План безопасной миграции:
+
+1. Вынести все UI-действия из `auth_helpers.py` в `PreviewPage` / `PhoneAuthPage` / `SmsCodePage` (или удалить файл, если уже покрыто).
+2. Оставить `onboarding_helpers.py` как orchestration-функции и постепенно заменить `sleep` на page-методы с ожиданиями.
+3. `profile_helpers.py` оставить как test-assert helper (UI ↔ DB), но не добавлять туда UI-локаторы.
+4. Для новых тестов: сначала метод в Page Object, затем его использование в helper/fixture; не наоборот.
+
+Критерий готовности: любой шаг UI можно найти ровно в одном месте — в соответствующем Page Object.
 
 ## Структура страниц (Page Objects)
 
@@ -203,6 +243,10 @@ src/pages/mobile/
 ├── bookings/                           # Таб «Записи» + связанные экраны (BaseShellPage)
 │   ├── __init__.py
 │   ├── bookings_page.py
+│   ├── personal_bookings_page.py       # Персональные тренировки (страница-заглушка, локаторы добавятся)
+│   ├── group_bookings_page.py          # Групповые (страница-заглушка, локаторы добавятся)
+│   ├── doctors_bookings_page.py        # Доктора (страница-заглушка, локаторы добавятся)
+│   ├── events_bookings_page.py         # Ивенты (страница-заглушка, локаторы добавятся)
 │   └── qr_overlay.py                   # QR-оверлей, открываемый из таббара
 ├── clubs/                              # Экраны «Клубы»
 │   ├── __init__.py
@@ -228,6 +272,7 @@ src/pages/mobile/
 │   └── notifications_page.py
 └── common/                             # Общие компоненты/утилиты для мобильных страниц
     ├── __init__.py
+    ├── city_selector_page.py           # Иногда появляется перед целевыми экранами (выбор города/клуба)
     └── (будущие общие компоненты)
 ```
 

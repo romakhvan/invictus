@@ -19,9 +19,28 @@ MOBILE_DEVICE_NAME = os.getenv("MOBILE_DEVICE_NAME", "emulator-5554")
 MOBILE_PLATFORM_VERSION = os.getenv("MOBILE_PLATFORM_VERSION", "14")
 MOBILE_APPIUM_SERVER = os.getenv("APPIUM_SERVER_URL", "http://localhost:4723")
 
-# Package и Activity для установленного приложения
-MOBILE_APP_PACKAGE = os.getenv("MOBILE_APP_PACKAGE", "com.example.app")
-MOBILE_APP_ACTIVITY = os.getenv("MOBILE_APP_ACTIVITY", ".MainActivity")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # prod | staging | development
+
+# Package и Activity по окружению
+_APP_CONFIG_MAP: dict[str, dict[str, str]] = {
+    "prod": {
+        "package":  "kz.fitnesslabs.invictus",
+        "activity": "kz.fitnesslabs.invictus.MainActivity",
+    },
+    "staging": {
+        "package":  "kz.fitnesslabs.invictus.staging",
+        "activity": ".MainActivity",
+    },
+    "development": {
+        "package":  "kz.fitnesslabs.invictus.development",
+        "activity": "kz.fitnesslabs.invictus.development.MainActivity",
+    },
+}
+
+_env_cfg = _APP_CONFIG_MAP.get(ENVIRONMENT, _APP_CONFIG_MAP["staging"])
+
+MOBILE_APP_PACKAGE = os.getenv("MOBILE_APP_PACKAGE", _env_cfg["package"])
+MOBILE_APP_ACTIVITY = os.getenv("MOBILE_APP_ACTIVITY", _env_cfg["activity"])
 
 # Общие настройки
 IMPLICIT_WAIT = int(os.getenv("IMPLICIT_WAIT", "10"))  # секунды

@@ -1,38 +1,12 @@
-import pytest
-import pymongo
 import pytest_check as check
 from collections import Counter
 from datetime import timedelta
 
 from src.repositories.rabbitholev2_repository import get_all_rabbitholev2_subscriptions_last_14_days
-from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
-
-
-# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
-# Выберите окружение базы данных: 'prod' или 'stage'
-ENVIRONMENT = 'prod'  # 'prod' или 'stage'
-# ============================================
-
-
-@pytest.fixture(scope="session")
-def db():
-    """
-    Фикстура для подключения к MongoDB.
-    Окружение определяется переменной ENVIRONMENT.
-    """
-    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
-    env_name = ENVIRONMENT.upper()
-    
-    print(f"\nConnecting to MongoDB {env_name}...")
-    client = pymongo.MongoClient(mongo_uri)
-    db = client[DB_NAME]
-    yield db
-    print(f"\nClosing Mongo {env_name} connection.")
-    client.close()
 
 
 
-def test_rabbitholev2_users_with_subscriptions_sample(db):
+def test_rabbitholev2_users_with_subscriptions_sample(db, period_days):
     """
     🧪 Проверка пользователей с подписками, где разница между startDate и endDate больше 12 месяцев.
     Выводит только первые 5 примеров.
@@ -40,12 +14,12 @@ def test_rabbitholev2_users_with_subscriptions_sample(db):
     print("\n" + "=" * 80)
     print("ТЕСТ: Пользователи с подписками (длительность > 12 месяцев)")
     print("=" * 80)
-    
-    # Получаем все записи за последние 14 дней
-    results = get_all_rabbitholev2_subscriptions_last_14_days(db, days=14)
+
+    # Получаем все записи за указанный период
+    results = get_all_rabbitholev2_subscriptions_last_14_days(db, days=period_days)
     
     if not results:
-        print("\n⚠️ Записи не найдены за последние 14 дней")
+        print(f"\n⚠️ Записи не найдены за последние {period_days} дней")
         return
     
     # Фильтруем записи с подписками, где разница между endDate и startDate больше 12 месяцев

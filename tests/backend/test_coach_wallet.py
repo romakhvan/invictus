@@ -1,5 +1,3 @@
-import pytest
-import pymongo
 import pytest_check as check
 from src.validators.coach_wallet_validator import (
     validate_coach_wallet,
@@ -16,34 +14,9 @@ from src.repositories.transactions_repository import (
     get_transactions_with_coach_summary,
     analyze_transactions_collaboration_types
 )
-from src.config.db_config import MONGO_URI_PROD, MONGO_URI_STAGE, DB_NAME
-
-
-# ========== КОНФИГУРАЦИЯ ОКРУЖЕНИЯ ==========
-# Выберите окружение базы данных: 'prod' или 'stage'
-ENVIRONMENT = 'stage'  # 'prod' или 'stage'
-# ============================================
 
 # ID тренера для тестирования (можно изменить при необходимости)
 COACH_USER_ID = "66d030cf0f02c0003eed0eb9"
-
-
-@pytest.fixture(scope="session")
-def db():
-    """
-    Фикстура для подключения к MongoDB.
-    Окружение определяется переменной ENVIRONMENT.
-    """
-    mongo_uri = MONGO_URI_PROD if ENVIRONMENT == 'prod' else MONGO_URI_STAGE
-    env_name = ENVIRONMENT.upper()
-    
-    print(f"\nConnecting to MongoDB {env_name}...")
-    client = pymongo.MongoClient(mongo_uri)
-    db = client[DB_NAME]
-    yield db
-    print(f"\nClosing Mongo {env_name} connection.")
-    client.close()
-
 
 def test_coach_wallet_full_validation(db):
     """

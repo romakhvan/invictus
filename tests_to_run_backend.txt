@@ -1,0 +1,32 @@
+# Список backend-тестов для запуска
+# Запуск: python run_tests.py  (MODE = "backend" в run_tests.py)
+#
+# Формат: путь к тесту | флаги pytest (флаги необязательны)
+#   tests\backend\test_foo.py | -v -k bar
+#
+# PYTEST_ARGS: -q --tb=no --no-header
+# PERIOD_DAYS: 7
+
+# --- Notifications ---
+# tests\backend\notifications\test_welcome_push.py
+# tests\backend\notifications\test_birthday_push.py
+# tests\backend\notifications\test_guest_visits_push.py
+# tests\backend\notifications\test_inactive_user_push.py
+
+# --- Payments ---
+tests\backend\payments\test_webkassa_monitoring.py
+# tests\backend\payments\test_recent_transactions.py
+
+# --- Payments / Bonuses ---
+tests\backend\payments\bonuses\test_kyrgyzstan_no_bonuses.py
+# tests\backend\payments\bonuses\test_subscription_bonus_limit.py
+
+# --- Trainings ---
+# tests\backend\trainings\test_personal_trainings_consistency.py
+
+# --- Other ---
+# tests\backend\test_coach_wallet.py
+# tests\backend\test_statistics_2025.py
+# tests\backend\test_rabbitholev2_no_duplicate_users.py
+# tests\backend\test_high_frequency_clients_no_subscription.py
+# tests\backend\test_subscription_gaps.py

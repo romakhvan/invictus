@@ -56,11 +56,15 @@ class QrOverlay(BaseMobilePage):
     def close(self) -> "BookingsPage":
         """
         Закрыть QR-экран и вернуться на таб «Записи».
-        Пока крестик кликается по фиксированным координатам (инкапсулировано здесь).
+        Крестик пока кликается по фиксированным координатам.
         """
         tap_x, tap_y = 100, 170
-        self.driver.tap([(tap_x, tap_y)], 100)
-        print(f"✅ QR-экран закрыт (тап по координатам {tap_x}, {tap_y})")
+        self.tap_by_coordinates(
+            tap_x,
+            tap_y,
+            duration_ms=100,
+            action_name="QR-экран закрыт",
+        )
 
         from src.pages.mobile.bookings.bookings_page import BookingsPage
 
