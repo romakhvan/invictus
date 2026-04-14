@@ -1,19 +1,32 @@
 # Список мобильных тестов для запуска
 # Запуск: python run_tests.py  (MODE = "mobile" в run_tests.py)
 #
-# Формат: путь к тесту | флаги pytest (флаги необязательны)
-#   tests\mobile\bookings\test_foo.py | -v -m mobile --mobile-no-reset -k bar --keepalive
+# Формат: путь к тесту | флаги (необязательны, дополняют PYTEST_ARGS)
+#   tests\mobile\bookings\test_foo.py | --mobile-no-reset -k bar --keepalive
 #
 # Директивы (управляют поведением скрипта):
-#   # ALLURE: on|off
-#   # OPEN_REPORT: on|off
-#   # INTERACTIVE: on|off       ← добавляет -s к pytest (для input())
-#   # PYTEST_ARGS: -v -s        ← явно задать базовые аргументы pytest
-#   --mobile-ui-logs            ← добавить в PYTEST_ARGS или к строке теста
+#   # ALLURE: on|off         — генерировать Allure-отчёт
+#   # OPEN_REPORT: on|off    — открыть отчёт после завершения (только если ALLURE: on)
+#   # INTERACTIVE: on|off    — добавляет -s ко всем тестам (нужно если есть input())
+#   # PYTEST_ARGS: -v -s     — базовые аргументы для всех тестов в файле
+#
+# Флаги pytest:
+#   -v                  подробный вывод (имя каждого теста)
+#   -m mobile           запускать только @pytest.mark.mobile тесты
+#   -s                  показывать print() из тестов
+#   -k "doctors"        фильтр по имени теста (подстрока или выражение)
+#
+# Кастомные флаги Appium:
+#   --mobile-no-reset   не сбрасывать данные приложения между тестами
+#   --keepalive         показать интерактивное меню отладки после теста (оставляет приложение открытым)
+#   --mobile-ui-logs    логи UI-слоя (WAIT/CLICK/SWIPE/etc.)
+#   --onboarding-phone  конкретный номер телефона для теста онбординга (если не указан — ищется автоматически)
 
+# SINGLE_TEST: None
 # ALLURE: off
 # OPEN_REPORT: off
 # INTERACTIVE: on
+# PYTEST_ARGS: -v -m mobile -s --keepalive   
 
 # --- Infra ---
 # tests\mobile\infra\test_appium_connection.py
@@ -23,14 +36,17 @@
 # tests\mobile\auth\test_phone_auth_refactored.py
 
 # --- Onboarding ---
-# tests\mobile\onboarding\test_client_onboarding.py
+# tests\mobile\onboarding\test_client_onboarding.py | --onboarding-phone 7781000011
+# tests\mobile\onboarding\test_client_onboarding_kyrgyzstan.py | --onboarding-phone-kg 700000001
 
 # --- Home ---
 # tests\mobile\home\test_main_screen.py
-# tests\mobile\home\test_home_entrypoints_new_user.py | -v -m mobile --mobile-no-reset
+# tests\mobile\home\test_home_entrypoints_new_user.py | --mobile-no-reset
 
 # --- Bookings ---
-tests\mobile\bookings\test_bookings_entrypoints.py | -v -m mobile --mobile-no-reset -k doctors --keepalive
+# tests\mobile\bookings\test_bookings_entrypoints.py | --mobile-no-reset
+tests\mobile\bookings\test_bookings_entrypoints.py | --mobile-no-reset -k doctors
+# tests\mobile\bookings\test_bookings_tabs.py | --mobile-no-reset
 
 # --- Navigation ---
 # tests\mobile\navigation\test_navigation_new_user.py | --mobile-no-reset

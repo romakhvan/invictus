@@ -90,7 +90,7 @@ class NamePage(BaseMobilePage):
         """Нажать кнопку 'Далее'."""
         # Скрываем клавиатуру перед нажатием кнопки
         try:
-            self.driver.hide_keyboard()
+            self.hide_keyboard()
             print("✅ Клавиатура скрыта перед нажатием кнопки 'Далее'")
         except Exception:
             pass  # Клавиатура уже скрыта

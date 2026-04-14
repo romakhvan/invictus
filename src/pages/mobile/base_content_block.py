@@ -151,6 +151,16 @@ class MobileInteractionMixin:
         self.driver.tap([(x, y)], duration_ms)
         print(f"✅ {action_name} ({x}, {y})")
 
+    def hide_keyboard(self) -> bool:
+        """Пытается скрыть клавиатуру и возвращает, удалось ли это сделать."""
+        try:
+            self.driver.hide_keyboard()
+            self._log_ui("HIDE KEYBOARD")
+            return True
+        except Exception as exc:
+            self._log_ui(f"HIDE KEYBOARD SKIPPED: {type(exc).__name__}")
+            return False
+
     @staticmethod
     def _locator_str(locator: Locator) -> str:
         """Строковое представление локатора для сообщений об ошибках."""
@@ -202,6 +212,44 @@ class MobileInteractionMixin:
             return element
         except TimeoutException as e:
             self._log_ui(f"VISIBLE TIMEOUT ({timeout}s): {locator_str} | {error_message}")
+            self._raise_timeout_with_context(
+                locator, error_message, timeout, take_screenshot_on_timeout, cause=e
+            )
+
+    def wait_invisible(
+        self,
+        locator: Locator,
+        error_message: str = "Element is still visible",
+        timeout: int = 20,
+    ):
+        """Ждёт, пока элемент станет невидимым (или исчезнет из DOM)."""
+        locator_str = self._locator_str(locator)
+        self._log_ui(f"WAIT INVISIBLE ({timeout}s): {locator_str}")
+        try:
+            wait = self._wait(timeout)
+            wait.until(EC.invisibility_of_element_located(locator))
+            self._log_ui(f"INVISIBLE DONE: {locator_str}")
+        except TimeoutException as e:
+            self._log_ui(f"INVISIBLE TIMEOUT ({timeout}s): {locator_str} | {error_message}")
+            self._raise_timeout_with_context(locator, error_message, timeout, cause=e)
+
+    def wait_clickable(
+        self,
+        locator: Locator,
+        error_message: str = "Element is not clickable",
+        timeout: int = 20,
+        take_screenshot_on_timeout: bool = True,
+    ):
+        """Ждёт, пока элемент станет кликабельным, и возвращает его."""
+        locator_str = self._locator_str(locator)
+        self._log_ui(f"WAIT CLICKABLE ({timeout}s): {locator_str}")
+        try:
+            wait = self._wait(timeout)
+            element = wait.until(EC.element_to_be_clickable(locator))
+            self._log_ui(f"CLICKABLE DONE: {locator_str} | {self._element_snapshot(element)}")
+            return element
+        except TimeoutException as e:
+            self._log_ui(f"CLICKABLE TIMEOUT ({timeout}s): {locator_str} | {error_message}")
             self._raise_timeout_with_context(
                 locator, error_message, timeout, take_screenshot_on_timeout, cause=e
             )

@@ -12,9 +12,64 @@ from src.utils.ui_helpers import click_element_with_fallback
 if TYPE_CHECKING:
     from appium.webdriver import Remote
 
+from src.pages.mobile.bookings.bookings_page import BookingsPage
+from src.pages.mobile.bookings.qr_overlay import QrOverlay
+from src.pages.mobile.home import HomePage, HomeState
+from src.pages.mobile.profile.profile_page import ProfilePage
+from src.pages.mobile.stats.stats_page import StatsPage
+
 
 @pytest.mark.mobile
-def test_navigation_tabs_exist(mobile_driver: "Remote"):
+def test_bottom_nav_tabs_visible(potential_user_on_main_screen: "Remote"):
+    """Bottom navigation shows the expected shell tabs for a NEW_USER."""
+    home = HomePage(potential_user_on_main_screen).wait_loaded()
+    assert home.get_current_home_state() == HomeState.NEW_USER
+
+    nav = home.nav
+    assert nav.is_visible(nav.TAB_MAIN), "Ожидался таб 'Главная'"
+    assert nav.is_visible(nav.TAB_BOOKINGS), "Ожидался таб 'Записи'"
+    assert nav.is_visible(nav.TAB_STATS), "Ожидался таб 'Статистика'"
+    assert nav.is_visible(nav.TAB_PROFILE), "Ожидался таб 'Профиль'"
+
+
+@pytest.mark.mobile
+@pytest.mark.parametrize(
+    "open_method, expected_type",
+    [
+        ("open_bookings", BookingsPage),
+        ("open_stats", StatsPage),
+        ("open_profile", ProfilePage),
+    ],
+    ids=["bookings", "stats", "profile"],
+)
+def test_bottom_nav_opens_shell_sections(
+    potential_user_on_main_screen: "Remote",
+    open_method: str,
+    expected_type: type,
+):
+    """Bottom navigation opens shell pages through the page-object layer."""
+    home = HomePage(potential_user_on_main_screen).wait_loaded()
+    assert home.get_current_home_state() == HomeState.NEW_USER
+
+    page = getattr(home.nav, open_method)()
+    assert isinstance(page, expected_type)
+
+
+@pytest.mark.mobile
+def test_bottom_nav_qr_opens_overlay(potential_user_on_main_screen: "Remote"):
+    """QR button opens the QR overlay and allows returning to Bookings."""
+    home = HomePage(potential_user_on_main_screen).wait_loaded()
+    qr = home.nav.open_qr()
+
+    assert isinstance(qr, QrOverlay)
+    qr.assert_texts_present()
+
+    bookings = qr.close()
+    assert isinstance(bookings, BookingsPage)
+
+
+@pytest.mark.mobile
+def legacy_test_navigation_tabs_exist(mobile_driver: "Remote"):
     """
     Проверка: вкладки навигации существуют и видны.
     """
@@ -53,7 +108,7 @@ def test_navigation_tabs_exist(mobile_driver: "Remote"):
 
 
 @pytest.mark.mobile
-def test_navigation_click(mobile_driver: "Remote"):
+def legacy_test_navigation_click(mobile_driver: "Remote"):
     """
     Проверка: клик по вкладке навигации работает.
     """
@@ -98,4 +153,3 @@ def test_navigation_click(mobile_driver: "Remote"):
         
     except Exception as e:
         print(f"❌ Ошибка при навигации: {e}")
-

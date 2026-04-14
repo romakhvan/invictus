@@ -20,6 +20,7 @@ class CitySelectorPage(BaseMobilePage):
     """Экран выбора клуба с фильтром по городу."""
 
     page_title = "Выбор клуба/города"
+    DEFAULT_CITY_NAME = "Алматы"
 
     # Маркеры экрана: фильтр по городу присутствует на экране со списком клубов
     ALL_CITIES_FILTER = (AppiumBy.XPATH, '//android.widget.TextView[@text="Все города"]')
@@ -77,6 +78,10 @@ class CitySelectorPage(BaseMobilePage):
             return "cities_list"
         return "unknown"
 
+    def is_any_selector_state_open(self, timeout: float = 1) -> bool:
+        """True, если открыт любой вариант экрана выбора города/клуба."""
+        return self.get_state(timeout=timeout) != "unknown"
+
     @staticmethod
     def _city_option(city_name: str):
         return (AppiumBy.XPATH, f'//android.widget.TextView[@text="{city_name}"]')
@@ -110,6 +115,20 @@ class CitySelectorPage(BaseMobilePage):
             self.CLUBS_LIST_MARKER,
             'После выбора города не отображается список клубов (не найден маркер "Invictus")',
         )
+        return self
+
+    def select_default_city(self, city_name: str = DEFAULT_CITY_NAME) -> "CitySelectorPage":
+        """
+        Выбрать город по умолчанию на экране списка городов.
+
+        Для некоторых флоу приложение после выбора города сразу уходит
+        на целевой экран, без возврата к списку клубов.
+        """
+        self.wait_visible(
+            self.CITIES_LIST_MARKER,
+            'Нельзя выбрать город по умолчанию: не открыт список городов',
+        )
+        self.click(self._city_option(city_name))
         return self
 
     def select_all_cities(self) -> "CitySelectorPage":
@@ -158,4 +177,3 @@ class CitySelectorPage(BaseMobilePage):
         self.select_club(club_name)
         self.apply_selection()
         return self
-

@@ -8,7 +8,13 @@ import pymongo
 import time
 
 from src.config.db_config import MONGO_URI_STAGE, DB_NAME
-from tests.mobile.helpers.session_helpers import ensure_potential_user_on_main_screen
+from tests.mobile.helpers.session_helpers import (
+    ensure_coach_user_on_home_screen,
+    ensure_member_user_on_home_screen,
+    ensure_new_user_on_home_screen,
+    ensure_potential_user_on_main_screen,
+    ensure_subscribed_user_on_home_screen,
+)
 
 
 @pytest.fixture(scope="session")
@@ -53,19 +59,61 @@ def pytest_runtest_makereport(item, call):
         print(f"⏱️  Время выполнения: {execution_time:.2f} сек ({execution_time/60:.2f} мин)")
 
 
+# ==================== Фикстуры с параметрами командной строки ====================
+
+@pytest.fixture(scope="session")
+def onboarding_phone(request):
+    """Номер телефона для теста онбординга (передаётся через --onboarding-phone)."""
+    return request.config.getoption("--onboarding-phone")
+
+
+@pytest.fixture(scope="session")
+def onboarding_phone_kg(request):
+    """Номер телефона (без кода +996) для теста онбординга клиента из Кыргызстана (--onboarding-phone-kg)."""
+    return request.config.getoption("--onboarding-phone-kg")
+
+
 # ==================== Общие фикстуры для всех mobile тестов ====================
+
+@pytest.fixture
+def new_user_on_home(mobile_driver, db):
+    """Драйвер на главной в состоянии NEW_USER."""
+    ensure_new_user_on_home_screen(mobile_driver, db)
+    yield mobile_driver
+
+
+@pytest.fixture
+def subscribed_user_on_home(mobile_driver, db):
+    """Драйвер на главной в состоянии SUBSCRIBED."""
+    ensure_subscribed_user_on_home_screen(mobile_driver, db)
+    yield mobile_driver
+
+
+@pytest.fixture
+def member_user_on_home(mobile_driver, db):
+    """Драйвер на главной в состоянии MEMBER."""
+    ensure_member_user_on_home_screen(mobile_driver, db)
+    yield mobile_driver
+
+
+@pytest.fixture
+def coach_user_on_home(mobile_driver, db):
+    """Драйвер, авторизованный coach-пользователем. Пока flow может завершиться skip."""
+    ensure_coach_user_on_home_screen(mobile_driver, db)
+    yield mobile_driver
+
 
 @pytest.fixture
 def potential_user_on_main_screen(mobile_driver, db):
     """Драйвер на главной под пользователем role=potential."""
-    ensure_potential_user_on_main_screen(mobile_driver, db)
+    ensure_new_user_on_home_screen(mobile_driver, db)
     yield mobile_driver
 
 
 @pytest.fixture
 def authorized_potential_user(mobile_driver, db):
     """Авторизованный potential-пользователь на главной (алиас для auth-тестов)."""
-    ensure_potential_user_on_main_screen(mobile_driver, db)
+    ensure_new_user_on_home_screen(mobile_driver, db)
     yield mobile_driver
 
 
@@ -73,4 +121,3 @@ def authorized_potential_user(mobile_driver, db):
 # Меню вызывается в teardown фикстуры appium_driver (tests/conftest.py), когда
 # тест помечен @pytest.mark.interactive_mobile или передан --keepalive.
 # Так сессия не закрывается до выхода из меню — команды 1–9 работают.
-

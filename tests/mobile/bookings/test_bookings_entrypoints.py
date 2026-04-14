@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Type
 import pytest
 
 from src.pages.mobile.bookings.bookings_page import BookingsPage
-from src.pages.mobile.bookings.doctors_bookings_page import DoctorsBookingsPage
+from src.pages.mobile.bookings.doctors_schedule_page import DoctorsSchedulePage
 from src.pages.mobile.bookings.events_bookings_page import EventsBookingsPage
+from src.pages.mobile.bookings.faq_bookings_page import FaqBookingsPage
 from src.pages.mobile.bookings.group_bookings_page import GroupBookingsPage
 from src.pages.mobile.bookings.personal_bookings_page import PersonalBookingsPage
 from src.pages.mobile.home import HomePage, HomeState
@@ -25,14 +26,16 @@ if TYPE_CHECKING:
     [
         ("open_personal_section", PersonalBookingsPage),
         ("open_group_section", GroupBookingsPage),
-        ("open_doctors_section", DoctorsBookingsPage),
+        ("open_doctors_section", DoctorsSchedulePage),
         ("open_events_section", EventsBookingsPage),
+        ("open_faq_section", FaqBookingsPage),
     ],
     ids=[
         "personal",
         "group",
         "doctors",
         "events",
+        "faq",
     ],
 )
 def test_bookings_entrypoints_open_expected_page(
@@ -46,7 +49,7 @@ def test_bookings_entrypoints_open_expected_page(
     driver = potential_user_on_main_screen
 
     # Гарантируем, что находимся на главной в состоянии NEW_USER.
-    home = HomePage(driver)
+    home = HomePage(driver).wait_loaded()
     assert home.get_current_home_state() == HomeState.NEW_USER, (
         "Ожидалось состояние NEW_USER. Фикстура potential_user_on_main_screen "
         "должна обеспечивать вход под potential."
@@ -73,4 +76,3 @@ def test_bookings_entrypoints_open_expected_page(
         f"✅ Entrypoint '{entrypoint_method}' в табе 'Записи' успешно открыл страницу "
         f"{ExpectedPage.__name__}"
     )
-

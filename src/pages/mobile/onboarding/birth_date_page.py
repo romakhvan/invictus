@@ -38,8 +38,6 @@ class BirthDatePage(BaseMobilePage):
     
     def assert_ui(self):
         """Проверяет наличие всех ключевых элементов страницы даты рождения."""
-        import time
-        time.sleep(2)  # Ожидание стабилизации UI после анимации
 
         self.wait_present(self.HEADER, "Заголовок 'Когда вы родились?' не найден")
         self.wait_present(self.SUBTITLE, "Подзаголовок 'Выберите дату рождения' не найден")

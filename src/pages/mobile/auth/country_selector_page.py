@@ -4,7 +4,6 @@ Page Object: Экран выбора страны.
 
 from appium.webdriver import Remote
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.webdriver.support import expected_conditions as EC
 from src.pages.mobile.base_mobile_page import BaseMobilePage
 
 
@@ -27,26 +26,6 @@ class CountrySelectorPage(BaseMobilePage):
         self.wait_visible(self.COUNTRY_KYRGYZSTAN, "Страна 'Кыргызстан' не найдена")
         self.wait_visible(self.DONE_BUTTON, "Кнопка 'Готово' не найдена")
         print("✅ Страница выбора страны открыта, страны отображаются")
-    
-    def is_loaded(self) -> bool:
-        """
-        Устаревший метод. Используйте wait_loaded() вместо него.
-        
-        Проверка загрузки экрана выбора страны.
-        """
-        try:
-            self.wait.until(EC.visibility_of_element_located(self.HEADER))
-            return True
-        except Exception:
-            return False
-    
-    def verify_countries_displayed(self) -> bool:
-        """Устаревший метод. Используйте assert_ui()."""
-        try:
-            self.assert_ui()
-            return True
-        except AssertionError:
-            return False
     
     def select_country(self, country_name: str) -> None:
         """

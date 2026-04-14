@@ -4,7 +4,6 @@ Page Object: Экран превью/онбординга.
 
 from appium.webdriver import Remote
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.webdriver.support import expected_conditions as EC
 from src.pages.mobile.base_mobile_page import BaseMobilePage
 
 
@@ -40,14 +39,3 @@ class PreviewPage(BaseMobilePage):
         self.check_and_recover_app_state()
         return super().wait_loaded()
 
-    def is_loaded(self) -> bool:
-        """
-        Устаревший метод. Используйте wait_loaded() вместо него.
-        
-        Проверка загрузки экрана превью.
-        """
-        try:
-            self.wait.until(EC.visibility_of_element_located(self.START_BUTTON))
-            return True
-        except Exception:
-            return False

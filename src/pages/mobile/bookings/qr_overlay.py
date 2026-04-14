@@ -58,15 +58,18 @@ class QrOverlay(BaseMobilePage):
         Закрыть QR-экран и вернуться на таб «Записи».
         Крестик пока кликается по фиксированным координатам.
         """
-        tap_x, tap_y = 100, 170
-        self.tap_by_coordinates(
-            tap_x,
-            tap_y,
-            duration_ms=100,
-            action_name="QR-экран закрыт",
-        )
-
         from src.pages.mobile.bookings.bookings_page import BookingsPage
 
-        return BookingsPage(self.driver).wait_loaded()
+        self.driver.back()
+        try:
+            return BookingsPage(self.driver).wait_loaded()
+        except Exception:
+            window_size = self.driver.get_window_size()
+            self.tap_by_coordinates(
+                int(window_size["width"] * 0.09),
+                int(window_size["height"] * 0.09),
+                duration_ms=100,
+                action_name="QR fallback close tap",
+            )
+            return BookingsPage(self.driver).wait_loaded()
 

@@ -12,7 +12,9 @@ from src.pages.mobile.shell.base_shell_page import BaseShellPage
 
 if TYPE_CHECKING:
     from src.pages.mobile.bookings.doctors_bookings_page import DoctorsBookingsPage
+    from src.pages.mobile.bookings.doctors_schedule_page import DoctorsSchedulePage
     from src.pages.mobile.bookings.events_bookings_page import EventsBookingsPage
+    from src.pages.mobile.bookings.faq_bookings_page import FaqBookingsPage
     from src.pages.mobile.bookings.group_bookings_page import GroupBookingsPage
     from src.pages.mobile.bookings.personal_bookings_page import PersonalBookingsPage
 
@@ -22,11 +24,13 @@ class BookingsPage(BaseShellPage):
 
     page_title = "Bookings (Записи)"
     DEFAULT_BOOKINGS_CLUB_NAME = "Invictus Fitness Gagarin"
+    DEFAULT_DOCTORS_CITY_NAME = "Алматы"
+    DEFAULT_DOCTORS_SPECIALTY_NAME = "3D УЗИ плода"
 
     # Ключевые элементы экрана «Записи»
     TITLE_MY_BOOKINGS = (
         AppiumBy.XPATH,
-        '//android.widget.TextView[@text="Мои записи"]',
+        '//android.widget.TextView[@text="Куда хотите пойти?"]',
     )
     EMPTY_STATE_TEXT = (
         AppiumBy.XPATH,
@@ -68,6 +72,10 @@ class BookingsPage(BaseShellPage):
         AppiumBy.XPATH,
         '//android.widget.TextView[@text="Вопросы и ответы"]',
     )
+
+    # Табы переключения вида («Все возможности» / «Расписание»)
+    TAB_ALL_ACTIVITIES = (AppiumBy.ACCESSIBILITY_ID, "Все возможности")
+    TAB_SCHEDULE = (AppiumBy.ACCESSIBILITY_ID, "Расписание")
 
     def __init__(self, driver: Remote):
         super().__init__(driver)
@@ -136,6 +144,20 @@ class BookingsPage(BaseShellPage):
         except TimeoutException:
             return False
 
+    def _apply_default_doctors_city_if_selector_opened(self, timeout: int = 1) -> bool:
+        """
+        Если для раздела «Доктора» открылся список городов, выбрать город
+        по умолчанию и продолжить навигацию.
+        """
+        from src.pages.mobile.common.city_selector_page import CitySelectorPage
+
+        selector = CitySelectorPage(self.driver)
+        if selector.get_state(timeout=timeout) != "cities_list":
+            return False
+
+        selector.select_default_city(self.DEFAULT_DOCTORS_CITY_NAME)
+        return True
+
     def open_personal_section(self) -> "PersonalBookingsPage":
         """
         Открыть секцию «Персональные» в табе «Записи».
@@ -180,18 +202,66 @@ class BookingsPage(BaseShellPage):
         self._apply_default_club_if_city_selector_opened(timeout=1)
         return GroupBookingsPage(self.driver).wait_loaded()
 
-    def open_doctors_section(self) -> "DoctorsBookingsPage":
+    def open_doctors_section(self) -> "DoctorsSchedulePage":
         """
         Открыть секцию «Доктора» в табе «Записи».
 
-        Возвращает страницу записей к докторам.
+        Возвращает страницу записи к врачу.
         """
         from src.pages.mobile.bookings.doctors_bookings_page import (
             DoctorsBookingsPage,
         )
+        from src.pages.mobile.bookings.doctors_schedule_page import (
+            DoctorsSchedulePage,
+        )
 
         self.click(self.SECTION_DOCTORS_TITLE)
-        return DoctorsBookingsPage(self.driver).wait_loaded()
+        doctors = DoctorsBookingsPage(self.driver)
+        doctors_schedule = DoctorsSchedulePage(self.driver)
+
+        try:
+            doctors_schedule.wait_visible(
+                doctors_schedule.DETECT_LOCATOR,
+                "Экран 'Запись к врачу' не открылся сразу",
+                timeout=1,
+            )
+            return doctors_schedule.wait_loaded()
+        except TimeoutException:
+            pass
+
+        try:
+            doctors.wait_visible(
+                doctors.DETECT_LOCATOR,
+                "Экран 'Доктора' не открылся сразу (не найден заголовок 'Выберите специальность')",
+                timeout=1,
+            )
+            doctors.wait_loaded()
+            return doctors.select_specialty(self.DEFAULT_DOCTORS_SPECIALTY_NAME)
+        except TimeoutException:
+            pass
+
+        if self._apply_default_doctors_city_if_selector_opened(timeout=1):
+            try:
+                doctors_schedule.wait_visible(
+                    doctors_schedule.DETECT_LOCATOR,
+                    "Экран 'Запись к врачу' не открылся после выбора города",
+                    timeout=2,
+                )
+                return doctors_schedule.wait_loaded()
+            except TimeoutException:
+                doctors.wait_loaded()
+                return doctors.select_specialty(self.DEFAULT_DOCTORS_SPECIALTY_NAME)
+
+        try:
+            doctors_schedule.wait_visible(
+                doctors_schedule.DETECT_LOCATOR,
+                "Экран 'Запись к врачу' не открылся",
+                timeout=2,
+            )
+            return doctors_schedule.wait_loaded()
+        except TimeoutException:
+            doctors.wait_loaded()
+            return doctors.select_specialty(self.DEFAULT_DOCTORS_SPECIALTY_NAME)
 
     def open_events_section(self) -> "EventsBookingsPage":
         """
@@ -205,3 +275,32 @@ class BookingsPage(BaseShellPage):
 
         self.click(self.SECTION_EVENTS_TITLE)
         return EventsBookingsPage(self.driver).wait_loaded()
+
+    def open_faq_section(self) -> "FaqBookingsPage":
+        """
+        Открыть секцию «Вопросы и ответы» в табе «Записи».
+
+        Возвращает страницу FAQ.
+        """
+        from src.pages.mobile.bookings.faq_bookings_page import FaqBookingsPage
+
+        self.click(self.SECTION_FAQ_TITLE)
+        return FaqBookingsPage(self.driver).wait_loaded()
+
+    def switch_to_all_activities_tab(self) -> "BookingsPage":
+        """Переключиться на таб «Все возможности»."""
+        self.click(self.TAB_ALL_ACTIVITIES)
+        self.wait_visible(
+            self.SECTION_PERSONAL_TITLE,
+            "Секции не появились после переключения на таб 'Все возможности'",
+        )
+        return self
+
+    def switch_to_schedule_tab(self) -> "BookingsPage":
+        """Переключиться на таб «Расписание»."""
+        self.click(self.TAB_SCHEDULE)
+        self.wait_invisible(
+            self.SECTION_PERSONAL_TITLE,
+            "Секции не исчезли после переключения на таб 'Расписание'",
+        )
+        return self

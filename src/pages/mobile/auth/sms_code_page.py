@@ -39,14 +39,6 @@ class SmsCodePage(BaseMobilePage):
         
         print("✅ Страница ввода SMS-кода открыта")
     
-    def is_loaded(self) -> bool:
-        """Устаревший метод. Используйте wait_loaded() и assert_ui()."""
-        try:
-            self.wait.until(EC.presence_of_element_located(self.HEADER))
-            return True
-        except Exception:
-            return False
-    
     def get_displayed_phone_number(self) -> str:
         """
         Получить отображаемый номер телефона.
@@ -79,8 +71,6 @@ class SmsCodePage(BaseMobilePage):
         Args:
             code: SMS-код (по умолчанию "0000" для тестов)
         """
-        import time
-
         self.ensure_app_is_active()
 
         # Маппинг цифр на Android keycodes
@@ -92,23 +82,17 @@ class SmsCodePage(BaseMobilePage):
         for digit in code:
             if digit in keycode_map:
                 self.driver.press_keycode(keycode_map[digit])
-                time.sleep(0.5)
         
         print(f"✅ Введен SMS-код: {code}")
     
     def click_confirm(self) -> None:
         """Подтвердить введенный код."""
-        import time
-
         self.check_and_recover_app_state()
-        time.sleep(1)  # Пауза после ввода кода
 
         # Скрываем клавиатуру, чтобы открыть доступ к кнопке
-        try:
-            self.driver.hide_keyboard()
+        if self.hide_keyboard():
             print("✅ Клавиатура скрыта")
-            time.sleep(0.5)
-        except Exception:
+        else:
             print("⚠️ Клавиатура уже скрыта или не найдена")
         
         # Кликаем по кнопке
@@ -117,7 +101,6 @@ class SmsCodePage(BaseMobilePage):
             print("✅ Нажата кнопка 'Продолжить'")
         except Exception as e:
             print(f"⚠️ Кнопка 'Продолжить' не найдена: {e}")
-            time.sleep(2)  # Ждем автоматического перехода
     
     def is_resend_timer_visible(self) -> bool:
         """Проверить наличие таймера повторной отправки кода."""

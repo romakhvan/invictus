@@ -12,6 +12,9 @@ import time
 if TYPE_CHECKING:
     from appium.webdriver import Remote
 
+from src.pages.mobile.auth import PhoneAuthPage
+from tests.mobile.helpers.onboarding_helpers import run_auth_to_home
+
 
 def enter_phone_number(driver: "Remote", wait: WebDriverWait, phone_number: str) -> None:
     """
@@ -25,6 +28,9 @@ def enter_phone_number(driver: "Remote", wait: WebDriverWait, phone_number: str)
         wait: WebDriverWait объект
         phone_number: Номер телефона для ввода (10 цифр без кода страны)
     """
+    PhoneAuthPage(driver).wait_loaded().enter_phone(phone_number)
+    return
+
     # Универсальный XPath для поиска поля ввода телефона (работает для любой страны)
     # Вариант 1: Ищем EditText с маской телефона (содержит скобки или нули)
     # Вариант 2: Если не найдет, ищем любой EditText на странице
@@ -84,6 +90,9 @@ def authorize_user(driver: "Remote", wait: WebDriverWait, phone_number: str = "7
         phone_number: Номер телефона для авторизации (по умолчанию тестовый)
     """
     print("\n--- АВТОРИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ ---")
+    run_auth_to_home(driver, phone_number)
+    print("✅ Авторизация завершена\n")
+    return
     
     # Пропуск превью экрана
     start_button_xpath = '//android.widget.TextView[@text="Начать"]'

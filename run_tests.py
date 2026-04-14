@@ -15,6 +15,9 @@ import sys
 import os
 import platform
 import shutil
+import time
+import urllib.request
+import urllib.error
 
 # ==============================================================
 #  НАСТРОЙКИ — редактируй здесь
@@ -85,6 +88,116 @@ ALLURE_CATEGORIES_MOBILE = """[
 """
 
 
+def check_mobile_prerequisites() -> bool:
+    """
+    Проверяет подключение устройства через ADB и доступность Appium-сервера.
+    Если Appium не запущен — пытается запустить его автоматически.
+    Возвращает True, если всё готово к запуску тестов.
+    """
+    from dotenv import load_dotenv
+    load_dotenv()
+    appium_url = os.getenv("APPIUM_SERVER_URL", "http://localhost:4723")
+
+    print("=" * 60)
+    print("Предварительная проверка мобильного окружения")
+    print("=" * 60)
+
+    # --- 1. Проверка ADB ---
+    print("\n[1/2] Проверка подключённых устройств (adb devices)...")
+
+    if shutil.which("adb") is None:
+        print("ERROR: adb не найден. Убедитесь, что Android SDK Platform Tools установлены и добавлены в PATH.")
+        return False
+
+    try:
+        result = subprocess.run(
+            ["adb", "devices"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        lines = [line.strip() for line in result.stdout.strip().splitlines()]
+        # Первая строка — "List of devices attached", остальные — устройства
+        device_lines = [line for line in lines[1:] if line and not line.startswith("*")]
+
+        if not device_lines:
+            print("ERROR: Нет подключённых устройств. Подключите устройство или запустите эмулятор.")
+            return False
+
+        unauthorized = [line for line in device_lines if "unauthorized" in line]
+        offline = [line for line in device_lines if "offline" in line]
+        ready = [line for line in device_lines if "\tdevice" in line or " device" in line]
+
+        print(f"  Обнаружено устройств: {len(device_lines)}")
+        for dev in device_lines:
+            print(f"    {dev}")
+
+        if unauthorized:
+            print("WARNING: Неавторизованные устройства — разрешите USB-отладку на экране устройства.")
+        if offline:
+            print("WARNING: Offline-устройства — проверьте USB-кабель или перезапустите adb.")
+        if not ready:
+            print("ERROR: Нет готовых устройств (все offline или unauthorized).")
+            return False
+
+        print(f"  Готово к работе: {len(ready)} устройство(а)")
+
+    except subprocess.TimeoutExpired:
+        print("ERROR: adb devices завис (timeout 10s). Попробуйте перезапустить adb: adb kill-server && adb start-server")
+        return False
+    except Exception as e:
+        print(f"ERROR: Не удалось выполнить adb devices: {e}")
+        return False
+
+    # --- 2. Проверка Appium ---
+    print(f"\n[2/2] Проверка Appium-сервера ({appium_url})...")
+
+    def appium_is_running() -> bool:
+        try:
+            req = urllib.request.urlopen(f"{appium_url}/status", timeout=5)
+            return req.status == 200
+        except Exception:
+            return False
+
+    if appium_is_running():
+        print(f"  Appium уже запущен: {appium_url}")
+    else:
+        print("  Appium не запущен. Запускаю...")
+
+        if shutil.which("appium") is None:
+            print("ERROR: appium не найден. Установите: npm install -g appium")
+            return False
+
+        try:
+            is_windows = platform.system() == "Windows"
+            subprocess.Popen(
+                ["appium"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=is_windows,
+            )
+        except Exception as e:
+            print(f"ERROR: Не удалось запустить Appium: {e}")
+            return False
+
+        print("  Ожидание запуска Appium", end="", flush=True)
+        for _ in range(15):
+            time.sleep(1)
+            print(".", end="", flush=True)
+            if appium_is_running():
+                break
+        print()
+
+        if not appium_is_running():
+            print("ERROR: Appium не запустился за 15 секунд. Проверьте порт и вывод в терминале.")
+            return False
+
+        print(f"  Appium запущен: {appium_url}")
+
+    print("\n  Окружение готово. Запуск тестов...\n")
+    return True
+
+
 def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_report=True, mode="web"):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -99,6 +212,7 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
     file_generate_allure = None
     file_open_report = None
     interactive = None
+    file_single_test = None
     tests: list[tuple[str, list[str]]] = []
 
     for line in raw_lines:
@@ -130,6 +244,10 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
                     file_period_days = int(value)
                 except ValueError:
                     print(f"WARNING: Неверное значение PERIOD_DAYS: {value!r}, игнорируется")
+            elif upper.startswith("SINGLE_TEST:"):
+                value = cfg.split(":", 1)[1].strip()
+                if value and value.lower() != "none":
+                    file_single_test = value
             continue
 
         if "|" in stripped:
@@ -155,6 +273,14 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
     if not tests:
         print(f"WARNING: Файл {file_path} пустой или не содержит тестов")
         return 1
+
+    if file_single_test is not None:
+        normalized = file_single_test.replace("\\", "/").lower()
+        tests = [(p, a) for p, a in tests if p.replace("\\", "/").lower() == normalized]
+        if not tests:
+            print(f"ERROR: SINGLE_TEST={file_single_test!r} не найден в списке тестов")
+            return 1
+        print(f"SINGLE_TEST: запускается только {file_single_test}")
 
     mode_labels = {"mobile": "мобильных", "backend": "backend", "web": "web"}
     mode_label = mode_labels.get(mode, "")
@@ -248,6 +374,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     file_path = FILE or DEFAULT_FILES[MODE]
+
+    if MODE == "mobile" and not check_mobile_prerequisites():
+        sys.exit(1)
 
     sys.exit(run_tests_from_file(
         file_path=file_path,

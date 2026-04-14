@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from dotenv import load_dotenv
 from src.config.db_config import MONGO_URI_PROD, DB_NAME
+from src.utils.mobile_debug_menu import interactive_debug_menu
 from src.utils.telegram_notifier import send_test_notification
 from src.utils.ui_helpers import take_screenshot
 
@@ -65,6 +66,18 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="Включить подробные UI-логи Page Objects (WAIT/CLICK/VISIBLE и т.д.)",
+    )
+    parser.addoption(
+        "--onboarding-phone",
+        default=None,
+        type=str,
+        help="Конкретный номер телефона для теста онбординга. Если не указан — ищется свободный автоматически.",
+    )
+    parser.addoption(
+        "--onboarding-phone-kg",
+        default=None,
+        type=str,
+        help="Номер телефона (без кода страны +996) для теста онбординга клиента из Кыргызстана.",
     )
 
 
@@ -701,7 +714,7 @@ def appium_driver(request):
     if show_menu:
         driver_obj = driver.get_driver()
         try:
-            _interactive_debug_menu(driver_obj)
+            interactive_debug_menu(driver_obj)
         except (KeyboardInterrupt, EOFError):
             print("\n[interactive] Меню прервано пользователем")
     driver.close()

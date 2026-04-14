@@ -513,33 +513,37 @@ def test_webkassa_status_by_clubs(db, period_days):
         print("ПРИМЕРЫ ТРАНЗАКЦИЙ БЕЗ ЧЕКОВ (до 5 на клуб)")
         print("=" * 110)
         empty_count = 0
-        empty_examples_text = []
+        allure_empty_blocks = []
         for club_id, stats in sorted_clubs_by_problems:
             if stats["empty_examples"]:
                 club_info = f"\nКлуб: {stats['name']}\nВсего без чеков: {stats['without_receipts']}\n"
                 print(club_info)
-                empty_examples_text.append(club_info)
+                club_lines = [f"Клуб: {stats['name']} ({stats['without_receipts']})"]
                 for example in stats["empty_examples"]:
                     empty_count += 1
+                    date_str = example['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+                    trans_id = str(example['transaction_id'])
+                    price_fmt = f"{int(example['price']):,}".replace(",", " ") + " тг"
+                    product_type = example.get('productType') or '—'
                     example_text = [
                         f"  - Transaction: {example['transaction_id']}",
                         f"    Сумма: {example['price']} тг",
                         f"    Тип продукта: {example.get('productType', 'N/A')}",
-                        f"    Дата: {example['created_at'].strftime('%Y-%m-%d %H:%M:%S')}"
+                        f"    Дата: {date_str}"
                     ]
                     print("\n".join(example_text))
-                    empty_examples_text.append("\n".join(example_text))
+                    club_lines.append(f"- {date_str} | {trans_id} | {price_fmt} | {product_type}")
+                allure_empty_blocks.append("\n".join(club_lines))
                 if empty_count >= 25:
                     break
         if empty_count == 0:
             print("\nВсе транзакции имеют чеки")
-            empty_examples_text.append("Все транзакции имеют чеки")
-        if empty_examples_text:
-            allure.attach(
-                "\n".join(empty_examples_text),
-                name="Примеры транзакций без чеков",
-                attachment_type=allure.attachment_type.TEXT
-            )
+            allure_empty_blocks.append("Все транзакции имеют чеки")
+        allure.attach(
+            "\n\n".join(allure_empty_blocks),
+            name="Примеры транзакций без чеков",
+            attachment_type=allure.attachment_type.TEXT
+        )
 
     # ── Шаг 3: Итоговая оценка ────────────────────────────────────────────
     with allure.step("Итоговая оценка"):

@@ -51,10 +51,6 @@ def test_navigation_new_user_main_tabs(potential_user_on_main_screen: "Remote", 
     bookings = qr.close()
     print("✅ Экран QR-кода открыт, проверен и закрыт, вернулись на 'Записи'")
 
-    # После закрытия снова должен открыться экран «Записи»
-    bookings.wait_loaded()
-    print("✅ После закрытия QR снова открыт экран 'Записи'")
-
     # # Шаг 3: Статистика
     stats = bookings.nav.open_stats()
 

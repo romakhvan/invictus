@@ -46,18 +46,6 @@ class PhoneAuthPage(BaseMobilePage):
     def __init__(self, driver: Remote):
         super().__init__(driver)
     
-    def is_loaded(self) -> bool:
-        """
-        Устаревший метод. Используйте wait_loaded() вместо него.
-        
-        Проверка загрузки экрана ввода телефона.
-        """
-        try:
-            self.wait.until(EC.visibility_of_element_located(self.HEADER))
-            return True
-        except TimeoutException:
-            return False
-    
     def assert_ui(self):
         """Проверяет наличие всех ключевых элементов страницы."""
         self.wait_visible(self.HEADER, "Заголовок 'Введите ваш номер телефона' не найден")
@@ -66,14 +54,6 @@ class PhoneAuthPage(BaseMobilePage):
         self.wait_visible(self.COUNTRY_CODE_SELECTOR, "Селектор кода страны не найден")
         self.wait_visible(self.CONTINUE_BUTTON_GROUP, "Кнопка 'Продолжить' не найдена")
         print("✅ Страница ввода телефона открыта, все элементы присутствуют")
-    
-    def verify_all_elements(self) -> bool:
-        """Устаревший метод. Используйте assert_ui()."""
-        try:
-            self.assert_ui()
-            return True
-        except AssertionError:
-            return False
     
     def _find_phone_input(self):
         """
@@ -172,7 +152,6 @@ class PhoneAuthPage(BaseMobilePage):
         Returns:
             True если модалка появилась и была обработана, False если модалки не было
         """
-        import time
         
         # Проверяем наличие модалки
         try:
@@ -193,7 +172,11 @@ class PhoneAuthPage(BaseMobilePage):
                     print("✅ SMS выбран по умолчанию")
             
             # Нажимаем кнопку "Продолжить" в модалке
-            time.sleep(0.5)  # Небольшая задержка перед кликом
+            self.wait_visible(
+                self.MODAL_CONTINUE_BUTTON,
+                "Кнопка 'Продолжить' в модалке не найдена",
+                timeout=3,
+            )
             self.click(self.MODAL_CONTINUE_BUTTON)
             print("✅ Модалка закрыта, код отправлен")
             return True

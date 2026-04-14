@@ -207,6 +207,7 @@ MongoDB access objects, one per collection: `users_repository.py`, `subscription
 - Group steps logically (e.g. "Open bookings screen", "Validate subscription state")
 - Keep reports readable for non-developers (QA, product, analysts)
 - Attach only meaningful data (avoid noise)
+- Prefer compact output format in both Allure attachments and console `print()`: one line per entity with `|`-separated fields (e.g. `- 2025-01-01 12:00:00 | trans_id | 5 000 тг | ошибка`), grouped by entity header (`Club X (N)`). Avoid verbose multi-line blocks per record — they hurt readability when there are many items.
 
 **Run-list scalability**
 - Keep run-lists clean and structured (group by feature/domain)

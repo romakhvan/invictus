@@ -2,14 +2,19 @@
 Базовый класс для мобильных Page Objects (Appium).
 """
 
-from typing import Dict, Optional, Tuple
+import os
+import platform
+import subprocess
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
 from appium.webdriver import Remote
+from appium.webdriver.common.appiumby import AppiumBy
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 
 from src.pages.base_page import BasePage
-from src.pages.mobile.base_content_block import Locator, MobileInteractionMixin
+from src.pages.mobile.base_content_block import MobileInteractionMixin
 
 
 class BaseMobilePage(BasePage, MobileInteractionMixin):
@@ -59,8 +64,12 @@ class BaseMobilePage(BasePage, MobileInteractionMixin):
                 print(f"⚠️ Приложение свернулось (текущий: {current_package})")
                 print(f"   Активируем: {target_package}")
                 self.driver.activate_app(target_package)
-                import time
-                time.sleep(1.5)  # Даем время на анимацию открытия
+                try:
+                    WebDriverWait(self.driver, 5).until(
+                        lambda d: d.current_package == target_package
+                    )
+                except TimeoutException:
+                    pass
                 print(f"✅ Приложение активировано")
                 return True
             return False
@@ -77,8 +86,10 @@ class BaseMobilePage(BasePage, MobileInteractionMixin):
             if self.driver.is_locked():
                 print("⚠️ Устройство заблокировано, разблокируем...")
                 self.driver.unlock()
-                import time
-                time.sleep(0.5)
+                try:
+                    WebDriverWait(self.driver, 3).until(lambda d: not d.is_locked())
+                except Exception:
+                    pass
                 print("✅ Устройство разблокировано")
         except Exception as e:
             print(f"⚠️ Не удалось разблокировать устройство: {e}")
@@ -156,13 +167,6 @@ class BaseMobilePage(BasePage, MobileInteractionMixin):
             AssertionError: Если какой-то элемент не найден
         """
         pass
-    
-    def is_loaded(self) -> bool:
-        """
-        Устаревший метод. Используйте wait_loaded() вместо него.
-        Базовая проверка загрузки (можно переопределить).
-        """
-        return True
     
     def diagnose_page_elements(self, elements_dict: Dict[str, Tuple]) -> Dict[str, dict]:
         """
@@ -246,6 +250,130 @@ class BaseMobilePage(BasePage, MobileInteractionMixin):
         Returns:
             Путь к файлу с диагностикой
         """
+        filepath = self._build_diagnostics_filepath(context)
+        output_lines = self._collect_screen_diagnostics_lines(context)
+        self._write_diagnostics_file(filepath, output_lines)
+        print(f"\n📋 Диагностика сохранена: {filepath}")
+        self._open_diagnostics_file(filepath)
+        return filepath
+
+    def _build_diagnostics_filepath(self, context: str) -> str:
+        """Формирует путь к файлу диагностики."""
+        diag_dir = "diagnostics"
+        os.makedirs(diag_dir, exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        page_name = self.__class__.__name__
+        context_safe = context.replace(" ", "_").replace("/", "_") if context else "general"
+        filename = f"diag_{page_name}_{context_safe}_{timestamp}.txt"
+        return os.path.join(diag_dir, filename)
+
+    def _collect_screen_diagnostics_lines(self, context: str = "") -> List[str]:
+        """Собирает компактную диагностику текущего экрана."""
+        page_name = self.__class__.__name__
+        lines = [
+            "=" * 80,
+            "🔍 ДИАГНОСТИКА ЭКРАНА",
+            "=" * 80,
+            f"Страница: {page_name}",
+        ]
+        if context:
+            lines.append(f"Контекст: {context}")
+        lines.append(f"Время: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("")
+
+        try:
+            lines.append("📱 Application Info:")
+            lines.append(f"   Package:  {self.driver.current_package}")
+            lines.append(f"   Activity: {self.driver.current_activity}")
+        except Exception as exc:
+            lines.append(f"⚠️ Не удалось получить package/activity: {exc}")
+        lines.append("")
+
+        lines.extend(self._summarize_visible_elements("android.widget.TextView", "TEXT ELEMENTS"))
+        lines.extend(self._summarize_visible_elements("android.widget.Button", "BUTTONS"))
+        lines.extend(self._summarize_visible_elements("android.widget.EditText", "INPUT FIELDS"))
+        lines.extend(self._summarize_visible_elements("android.view.ViewGroup", "VIEWGROUPS"))
+
+        lines.append("─" * 80)
+        lines.append("📸 SCREENSHOT")
+        lines.append("─" * 80)
+        try:
+            from src.utils.ui_helpers import take_screenshot
+
+            screenshot_name = f"diag_{page_name}_{context or 'general'}.png".replace(" ", "_")
+            screenshot_path = take_screenshot(self.driver, screenshot_name)
+            lines.append(f"Сохранен: {screenshot_path}")
+        except Exception as exc:
+            lines.append(f"⚠️ Не удалось сделать скриншот: {exc}")
+        lines.append("")
+        lines.append("=" * 80)
+        lines.append("Конец диагностики")
+        lines.append("=" * 80)
+        return lines
+
+    def _summarize_visible_elements(self, class_name: str, title: str, limit: int = 10) -> List[str]:
+        """Возвращает краткую сводку по видимым элементам указанного класса."""
+        lines: List[str] = []
+        try:
+            elements = self.driver.find_elements(AppiumBy.CLASS_NAME, class_name)
+            visible_elements = []
+            for element in elements:
+                try:
+                    if element.is_displayed():
+                        visible_elements.append(element)
+                except Exception:
+                    continue
+
+            if not visible_elements:
+                return lines
+
+            lines.append("─" * 80)
+            lines.append(f"{title}: {len(visible_elements)} visible")
+            lines.append("─" * 80)
+
+            for idx, element in enumerate(visible_elements[:limit], 1):
+                text = (getattr(element, "text", "") or "").strip()
+                try:
+                    resource_id = (element.get_attribute("resource-id") or "").strip()
+                except Exception:
+                    resource_id = ""
+                try:
+                    content_desc = (element.get_attribute("content-desc") or "").strip()
+                except Exception:
+                    content_desc = ""
+
+                lines.append(
+                    f"[{idx}] text='{text}' | content-desc='{content_desc}' | resource-id='{resource_id}'"
+                )
+            lines.append("")
+        except Exception as exc:
+            lines.append(f"⚠️ Ошибка при сборе элементов {class_name}: {exc}")
+            lines.append("")
+        return lines
+
+    @staticmethod
+    def _write_diagnostics_file(filepath: str, output_lines: List[str]) -> None:
+        """Сохраняет диагностику в файл."""
+        with open(filepath, "w", encoding="utf-8") as file:
+            file.write("\n".join(output_lines))
+
+    @staticmethod
+    def _open_diagnostics_file(filepath: str) -> None:
+        """Пытается открыть файл диагностики системным приложением."""
+        try:
+            system = platform.system()
+            if system == "Windows":
+                os.startfile(filepath)
+            elif system == "Darwin":
+                subprocess.run(["open", filepath], check=False)
+            else:
+                subprocess.run(["xdg-open", filepath], check=False)
+            print("✅ Файл открыт в редакторе")
+        except Exception as exc:
+            print(f"⚠️ Не удалось автоматически открыть файл: {exc}")
+        return
+
         import os
         from datetime import datetime
         import subprocess
@@ -456,4 +584,3 @@ class BaseMobilePage(BasePage, MobileInteractionMixin):
             print(f"⚠️ Не удалось автоматически открыть файл: {e}")
         
         return filepath
-

@@ -124,12 +124,20 @@ class HomeNewUserContent(BaseContentBlock):
         """Открыть экран «Уведомления» через иконку в правом верхнем углу. Возвращает NotificationsPage."""
         from src.pages.mobile.notifications.notifications_page import NotificationsPage
 
-        center_x = (924 + 1032) // 2
-        center_y = (93 + 201) // 2
+        notification_locators = [
+            (AppiumBy.ACCESSIBILITY_ID, "Уведомления"),
+            (AppiumBy.XPATH, '//*[contains(@content-desc, "Уведом")]'),
+        ]
+        for locator in notification_locators:
+            if self.is_visible(locator, timeout=2):
+                self.click(locator, timeout=3)
+                return NotificationsPage(self.driver).wait_loaded()
+
+        window_size = self.driver.get_window_size()
         self.tap_by_coordinates(
-            center_x,
-            center_y,
+            int(window_size["width"] * 0.94),
+            int(window_size["height"] * 0.08),
             duration_ms=100,
-            action_name="Открыт экран уведомлений (тап по иконке)",
+            action_name="Открыт экран уведомлений (fallback tap)",
         )
         return NotificationsPage(self.driver).wait_loaded()

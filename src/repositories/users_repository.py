@@ -114,6 +114,79 @@ def get_phone_for_potential_user(db) -> str | None:
     return _normalize_phone_to_10_digits(raw)
 
 
+def _get_phone_for_user_id(db, user_id) -> str | None:
+    """Возвращает номер телефона пользователя по его _id."""
+    if user_id is None:
+        return None
+
+    users_col = db["users"]
+    user = users_col.find_one({"_id": user_id}, {"phone": 1, "phoneNumber": 1})
+    if not user:
+        return None
+
+    raw = user.get("phone") or user.get("phoneNumber")
+    return _normalize_phone_to_10_digits(raw)
+
+
+def get_phone_for_active_subscription_user(db) -> str | None:
+    """
+    Возвращает телефон пользователя с активной подпиской.
+
+    Подходит для подготовки состояния HomeState.SUBSCRIBED.
+    """
+    subscription = db["usersubscriptions"].find_one(
+        {
+            "isActive": True,
+            "isDeleted": False,
+            "kid": {"$exists": False},
+        },
+        {"user": 1},
+        sort=[("_id", -1)],
+    )
+    if not subscription:
+        return None
+    return _get_phone_for_user_id(db, subscription.get("user"))
+
+
+def get_phone_for_active_service_product_user(db) -> str | None:
+    """
+    Возвращает телефон пользователя с активным service product.
+
+    Используется как best-effort кандидат для состояния HomeState.MEMBER.
+    """
+    service_product = db["userserviceproducts"].find_one(
+        {
+            "isActive": True,
+            "isDeleted": False,
+            "child": {"$exists": False},
+        },
+        {"user": 1},
+        sort=[("_id", -1)],
+    )
+    if not service_product:
+        return None
+    return _get_phone_for_user_id(db, service_product.get("user"))
+
+
+def get_phone_for_coach_user(db) -> str | None:
+    """
+    Возвращает телефон пользователя, у которого есть запись в коллекции coaches.
+
+    Используется для подготовки coach-сценариев, если приложение показывает выбор режима.
+    """
+    coach = db["coaches"].find_one(
+        {
+            "isDeleted": False,
+            "user": {"$exists": True},
+        },
+        {"user": 1},
+        sort=[("_id", -1)],
+    )
+    if not coach:
+        return None
+    return _get_phone_for_user_id(db, coach.get("user"))
+
+
 def get_user_display_info_by_phone(db, phone_from_ui: str) -> dict | None:
     """
     Возвращает имя и номер в формате для UI по номеру телефона (как на экране).

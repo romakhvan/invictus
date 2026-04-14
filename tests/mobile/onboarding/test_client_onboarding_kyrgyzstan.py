@@ -1,9 +1,9 @@
 """
-Smoke-тест: полный флоу онбординга нового клиента (auth → onboarding → главная).
+Smoke-тест: полный флоу онбординга нового клиента из Кыргызстана (auth → onboarding → главная).
 
 Проверяет:
 - Запуск приложения и превью
-- Авторизацию (телефон + SMS-код)
+- Авторизацию (выбор страны Кыргызстан + телефон + SMS-код)
 - Загрузку и элементы страницы ввода имени
 - Ввод имени и фамилии, активацию кнопки «Далее»
 - Выбор даты рождения, пола, роста, веса
@@ -23,22 +23,18 @@ from src.config.app_config import MOBILE_APP_PACKAGE
 from src.pages.mobile.auth import PreviewPage, PhoneAuthPage, SmsCodePage
 from src.pages.mobile.onboarding import NamePage, BirthDatePage, GenderPage, HeightPage, WeightPage, FitnessGoalPage, WorkoutExperiencePage, WorkoutFrequencyPage, OnboardingCompletePage
 from src.pages.mobile.home import HomePage, HomeState
-from src.repositories.users_repository import get_available_test_phone
 from tests.mobile.helpers.onboarding_helpers import run_full_onboarding_to_main
-
-# Базовый номер для поиска свободного (префикс 700 для тестов)
-ONBOARDING_TEST_PHONE_BASE = "77781000001"  # Диапазон для онбординга: 777810000 - 777819999 (10k номеров)
 
 
 @pytest.mark.mobile
 @pytest.mark.smoke
-def test_new_client_onboarding_full_flow(mobile_driver: "Remote", db, onboarding_phone):
+def test_new_client_onboarding_kyrgyzstan_full_flow(mobile_driver: "Remote", db, onboarding_phone_kg):
     """
-    Smoke-тест: полный онбординг нового клиента от входа до главного экрана.
+    Smoke-тест: полный онбординг нового клиента из Кыргызстана (+996) от входа до главного экрана.
 
     Сценарий:
     1. Запуск приложения и пропуск превью
-    2. Авторизация (телефон + SMS-код)
+    2. Смена страны на Кыргызстан + авторизация (телефон + SMS-код)
     3. Страница имени — заполнение, проверка кнопки «Далее»
     4. Дата рождения, пол, рост, вес
     5. Цель тренировок, опыт занятий, частота тренировок
@@ -47,73 +43,69 @@ def test_new_client_onboarding_full_flow(mobile_driver: "Remote", db, onboarding
     """
     driver = mobile_driver
 
-    if onboarding_phone:
-        test_phone = onboarding_phone
-        print(f"📱 Используется указанный номер: {test_phone}")
-    else:
-        test_phone = get_available_test_phone(db, base_phone=ONBOARDING_TEST_PHONE_BASE)
-        if not test_phone:
-            pytest.skip(
-                f"Не найден свободный номер в диапазоне от {ONBOARDING_TEST_PHONE_BASE} "
-                "(все заняты в БД). Тест онбординга требует новый номер."
-            )
-        print(f"📱 Используется свободный номер: {test_phone}")
+    if not onboarding_phone_kg:
+        pytest.skip(
+            "Не указан номер для онбординга Кыргызстана. "
+            "Передайте --onboarding-phone-kg <номер> (9 цифр без кода страны)."
+        )
+
+    test_phone = onboarding_phone_kg
+    print(f"📱 Используется номер (Кыргызстан +996): {test_phone}")
 
     assert driver.current_package == MOBILE_APP_PACKAGE, \
         f"Неверный package: ожидался {MOBILE_APP_PACKAGE}, получен {driver.current_package}"
-    home = run_full_onboarding_to_main(driver, test_phone)
+    home = run_full_onboarding_to_main(driver, test_phone, country_name="Кыргызстан")
     assert home.get_current_home_state() == HomeState.NEW_USER
     home.get_content().assert_ui()
     return
 
     print("\n" + "=" * 80)
-    print("SMOKE-ТЕСТ: Полный онбординг нового клиента (auth → onboarding → главная)")
+    print("SMOKE-ТЕСТ: Полный онбординг нового клиента Кыргызстана (auth → onboarding → главная)")
     print("=" * 80 + "\n")
-    
+
     # Шаг 1: Проверка запуска
     assert driver.current_package == MOBILE_APP_PACKAGE, \
         f"Неверный package: ожидался {MOBILE_APP_PACKAGE}, получен {driver.current_package}"
     print(f"✅ Приложение запущено: {driver.current_package}")
-    
+
     # Шаг 2: Пропуск превью
     preview = PreviewPage(driver).wait_loaded()
     preview.skip_preview()
-    
-    # Шаг 3: Авторизация - ввод телефона
+
+    # Шаг 3: Авторизация — выбор страны Кыргызстан и ввод телефона
     phone = PhoneAuthPage(driver).wait_loaded()
-    phone.enter_phone(test_phone)
+    phone.select_country_and_enter("Кыргызстан", test_phone)
     phone.click_continue()
-    
+
     # Обработка модалки выбора способа получения кода (если появится)
     phone.handle_code_delivery_modal(method="SMS")
-    
-    print("✅ Номер телефона введен, переход к SMS-коду")
-    
-    # Шаг 4: Авторизация - ввод SMS-кода
+
+    print("✅ Страна Кыргызстан (+996) выбрана, номер телефона введён, переход к SMS-коду")
+
+    # Шаг 4: Авторизация — ввод SMS-кода
     sms = SmsCodePage(driver).wait_loaded()
     sms.enter_code()
     sms.click_confirm()
-    print("✅ SMS-код введен, переход к заполнению данных")
-    
+    print("✅ SMS-код введён, переход к заполнению данных")
+
     # Шаг 5: Проверка страницы ввода имени
     name_page = NamePage(driver).wait_loaded()
-    
+
     # Шаг 6: Заполнение имени и фамилии
     test_name = "Appium"
     test_surname = "Test"
     name_page.enter_full_name(test_name, test_surname)
-    
-    # Шаг 7: Проверка кнопки 'Далее'
+
+    # Шаг 7: Проверка кнопки «Далее»
     assert name_page.is_next_button_enabled(), "Кнопка 'Далее' должна быть активна"
     print("✅ Кнопка 'Далее' активна")
-    
+
     # Шаг 8: Переход к странице выбора даты рождения
     name_page.click_next()
-    
-    
+
     # Шаг 9: Проверка страницы выбора даты рождения
     birth_date_page = BirthDatePage(driver).wait_loaded()
-    
+
     # Шаг 10: Выбор даты рождения через свайп
     birth_date_page.swipe_date_picker()
     # NB: В шагах с выбором даты рождения часто требуется короткая пауза для анимации скроллера/обновления кнопки.
@@ -122,11 +114,11 @@ def test_new_client_onboarding_full_flow(mobile_driver: "Remote", db, onboarding
     time.sleep(0.5)
     birth_date_page.swipe_date_picker()
     print("✅ Дата рождения выбрана")
-    
-    # Шаг 11: Проверка и нажатие кнопки 'Далее'
+
+    # Шаг 11: Проверка и нажатие кнопки «Далее»
     assert birth_date_page.is_next_button_enabled(), "Кнопка 'Далее' должна быть активна"
     print("✅ Кнопка 'Далее' активна на странице даты рождения")
-    
+
     birth_date_page.click_next()
     print("✅ Нажата кнопка 'Далее'")
 

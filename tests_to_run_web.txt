@@ -4,6 +4,8 @@
 # Формат: путь к тесту | флаги pytest (флаги необязательны)
 #   tests\web\test_foo.py | -v -k bar
 
+# SINGLE_TEST: None
+
 # --- Web (invictus.kz) ---
 tests\web\test_home_page.py
 tests\web\test_clubs_page.py
