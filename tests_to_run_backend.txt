@@ -1,25 +1,27 @@
 # Список backend-тестов для запуска
 # Запуск: python run_tests.py  (MODE = "backend" в run_tests.py)
 #
+# В этом профиле допускаются только backend_check-сценарии.
+# Monitoring/reporting выносим в tests_to_run_backend_monitoring.txt.
+#
 # Формат: путь к тесту | флаги pytest (флаги необязательны)
 #   tests\backend\test_foo.py | -v -k bar
 #
 # PYTEST_ARGS: -q --tb=no --no-header
 # PERIOD_DAYS: 7
-# SINGLE_TEST: None
-
+# SINGLE_TEST: tests\backend\notifications\test_welcome_push.py
 
 # --- Notifications ---
 tests\backend\notifications\test_welcome_push.py
 tests\backend\notifications\test_birthday_push.py
 tests\backend\notifications\test_guest_visits_push.py
+tests\backend\notifications\test_guest_visit_discount_push.py
 tests\backend\notifications\test_inactive_user_push.py
 
 # --- Payments ---
 tests\backend\payments\test_freeze_days_no_duplicate.py
+tests\backend\payments\test_visit_price.py
 tests\backend\payments\test_promo_code_discount.py
-tests\backend\payments\test_webkassa_monitoring.py
-tests\backend\payments\test_recent_transactions.py
 tests\backend\payments\test_internal_error_transactions.py
 tests\backend\payments\test_subscription_access_type.py
 
@@ -30,7 +32,6 @@ tests\backend\payments\bonuses\test_forbidden_types_no_bonus_spend.py
 tests\backend\payments\bonuses\test_deduction_limits_by_plan.py
 tests\backend\payments\bonuses\test_bonus_deduction_consistency.py
 tests\backend\payments\bonuses\test_subscription_bonus_accrual.py
-tests\backend\payments\bonuses\test_bonus_usage_distribution.py
 
 
 # --- Trainings ---
@@ -38,7 +39,7 @@ tests\backend\trainings\test_personal_trainings_consistency.py
 
 # --- Other ---
 # tests\backend\test_coach_wallet.py
-# tests\backend\test_statistics_2025.py
+# tests\backend\test_statistics_2025.py      # backend_research
 # tests\backend\test_rabbitholev2_no_duplicate_users.py
-# tests\backend\test_high_frequency_clients_no_subscription.py
+# tests\backend\test_high_frequency_clients_no_subscription.py  # backend_research
 # tests\backend\test_subscription_gaps.py

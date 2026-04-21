@@ -63,13 +63,13 @@ def check_welcome_push(db, days=7, limit=1):
     """
     config = PushValidationConfig(
         name="Welcome Push Validation",
-        expected_title="Имя, добро пожаловать в Invictus 🏃",
+        expected_title="{{name}}, добро пожаловать в Invictus 🏃",
         expected_text="Здесь мы добьемся результата вместе. Ждем на тренировках.",
         fetch_function=get_user_ids_with_welcome_message,
         get_recipients_function=get_welcome_push_recipients,
         fetch_kwargs={
-            "description": "Купил первый абонемент,  но не приходит в клуб 1 неделю",
-            "title": "Имя, добро пожаловать в Invictus 🏃",
+            "description": "Купил первый абонемент, но не приходит в клуб 1 неделю [RU]",
+            "title": "{{name}}, добро пожаловать в Invictus 🏃",
             "text": "Здесь мы добьемся результата вместе. Ждем на тренировках."
         },
         description="Проверка welcome push для новых подписчиков без входов в клуб"

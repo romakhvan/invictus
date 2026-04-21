@@ -21,7 +21,11 @@ from tests.mobile.helpers.profile_helpers import assert_profile_matches_potentia
 @pytest.mark.mobile
 @pytest.mark.smoke
 @pytest.mark.interactive_mobile
-def test_navigation_new_user_main_tabs(potential_user_on_main_screen: "Remote", db):
+def test_navigation_new_user_main_tabs(
+    potential_user_on_main_screen: "Remote",
+    potential_user_context,
+    db,
+):
     """
     Smoke: проверка перехода по основным табам для пользователя NEW_USER (potential).
 
@@ -56,7 +60,7 @@ def test_navigation_new_user_main_tabs(potential_user_on_main_screen: "Remote", 
 
     # # Шаг 4: Профиль — проверка имени и телефона по БД
     profile = stats.nav.open_profile()
-    assert_profile_matches_potential_user(db, profile)
+    assert_profile_matches_potential_user(db, profile, context=potential_user_context)
 
     # # Шаг 5: Возврат на главную
     home = profile.nav.open_main()

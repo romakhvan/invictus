@@ -26,30 +26,31 @@
 # ALLURE: off
 # OPEN_REPORT: off
 # INTERACTIVE: on
-# PYTEST_ARGS: -v -m mobile -s --keepalive   
+# PYTEST_ARGS: -v -m mobile -s --mobile-ui-logs
 
 # --- Infra ---
 # tests\mobile\infra\test_appium_connection.py
-# tests\mobile\infra\test_app_launch.py
 
 # --- Auth ---
 # tests\mobile\auth\test_phone_auth_refactored.py
 
 # --- Onboarding ---
-# tests\mobile\onboarding\test_client_onboarding.py | --onboarding-phone 7781000011
+# tests\mobile\onboarding\test_client_onboarding.py
 # tests\mobile\onboarding\test_client_onboarding_kyrgyzstan.py | --onboarding-phone-kg 700000001
 
 # --- Home ---
-# tests\mobile\home\test_main_screen.py
 # tests\mobile\home\test_home_entrypoints_new_user.py | --mobile-no-reset
 
 # --- Bookings ---
 # tests\mobile\bookings\test_bookings_entrypoints.py | --mobile-no-reset
-tests\mobile\bookings\test_bookings_entrypoints.py | --mobile-no-reset -k doctors
+# tests\mobile\bookings\test_bookings_entrypoints.py | --mobile-no-reset -k doctors
 # tests\mobile\bookings\test_bookings_tabs.py | --mobile-no-reset
 
 # --- Navigation ---
 # tests\mobile\navigation\test_navigation_new_user.py | --mobile-no-reset
 
 # --- Flows ---
-# tests\mobile\flows\rabbit_hole\new_client_buy_rh.py
+# tests\mobile\flows\rabbit_hole\new_client_buy_rh.py | --mobile-no-reset
+
+# --- Debug ---
+tests\mobile\infra\test_mobile_locator_debug.py | --mobile-no-reset

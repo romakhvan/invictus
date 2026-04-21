@@ -22,10 +22,6 @@ BIN_LABELS = [
     "Использовано бонусов 90–100%",
 ]
 
-# Максимум строк на корзину в детальной таблице
-MAX_ROWS_PER_BIN = 200
-
-
 def _pct_str(value: float) -> str:
     return f"{value:.1f}%"
 
@@ -34,6 +30,16 @@ def _fmt_num(n: float) -> str:
     """1234567 → '1 234 567'"""
     return f"{int(n):,}".replace(",", "\u00a0")
 
+
+def _collapsible_block(title: str, content: str, opened: bool = False) -> str:
+    open_attr = " open" if opened else ""
+    return (
+        f"<details class='collapsible'{open_attr}>"
+        f"<summary>{title}</summary>"
+        f"<div class='collapsible-body'>{content}</div>"
+        f"</details>"
+    )
+    
 
 
 def _build_overall_html(overall_by_type: dict, total_count: int) -> str:
@@ -68,11 +74,8 @@ def _build_by_product_html(bin_details: dict) -> str:
     for pt in sorted(by_product.keys()):
         txs = by_product[pt]
         sorted_txs = sorted(txs, key=lambda x: x["pct"], reverse=True)
-        shown = sorted_txs[:10]
-        rest = len(txs) - len(shown)
-        parts.append(f"<h2>{pt} ({len(txs)} транзакций)</h2>")
         rows = []
-        for tx in shown:
+        for tx in sorted_txs:
             rows.append([
                 tx["name"],
                 tx["dt"],
@@ -82,9 +85,8 @@ def _build_by_product_html(bin_details: dict) -> str:
                 _fmt_num(tx["bonuses_spent"]),
                 _pct_str(tx["pct"]),
             ])
-        if rest > 0:
-            rows.append([f"<span class='gray'>... и ещё {rest}</span>", "", "", "", "", "", ""])
-        parts.append(html_table(headers, rows, right_cols=(4, 5, 6)))
+        content = html_table(headers, rows, right_cols=(4, 5, 6))
+        parts.append(_collapsible_block(f"{pt} ({len(txs)} транзакций)", content))
     body = "".join(parts) or "<p>Нет данных</p>"
     return f"<!DOCTYPE html><html><head><meta charset='utf-8'>{HTML_CSS}</head><body>{body}</body></html>"
 
@@ -104,11 +106,8 @@ def _build_combined_html(bin_details: dict) -> str:
         if not txs:
             continue
         sorted_txs = sorted(txs, key=lambda x: (x["pt"], x["dt"]))
-        shown = sorted_txs[:MAX_ROWS_PER_BIN]
-        rest = len(txs) - len(shown)
-        parts.append(f"<h2>{label} ({len(txs)} транзакций)</h2>")
         rows = []
-        for tx in shown:
+        for tx in sorted_txs:
             rows.append([
                 tx["pt"],
                 tx["dt"],
@@ -118,9 +117,8 @@ def _build_combined_html(bin_details: dict) -> str:
                 _fmt_num(tx["bonuses_spent"]),
                 _pct_str(tx["pct"]),
             ])
-        if rest > 0:
-            rows.append([f"<span class='gray'>... и ещё {rest}</span>", "", "", "", "", "", ""])
-        parts.append(html_table(headers, rows, right_cols=(4, 5, 6)))
+        content = html_table(headers, rows, right_cols=(4, 5, 6))
+        parts.append(_collapsible_block(f"{label} ({len(txs)} транзакций)", content))
     body = "".join(parts) or "<p>Нет данных</p>"
     return f"<!DOCTYPE html><html><head><meta charset='utf-8'>{HTML_CSS}</head><body>{body}</body></html>"
 

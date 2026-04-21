@@ -97,6 +97,11 @@ def _short_club_name(name: str) -> str:
     return name
 
 
+def _receipt_not_required(transaction: dict) -> bool:
+    """Transactions with zero factual amount do not require receipt creation."""
+    return (transaction.get("price") or 0) <= 0
+
+
 def _error_types_to_html(rows: list) -> str:
     headers = ["Тип ошибки", "Кол-во", "Клубы", "productType", "source", "instalmentType"]
     th = "".join(f"<th style='text-align:left;padding:6px 10px'>{h}</th>" for h in headers)
@@ -225,6 +230,7 @@ def test_webkassa_status_by_clubs(db, period_days):
             "clubId": 1,
             "webKassaIds": 1,
             "price": 1,
+            "bonusesSpent": 1,
             "created_at": 1,
             "productType": 1,
             "source": 1,
@@ -282,9 +288,11 @@ def test_webkassa_status_by_clubs(db, period_days):
             "with_success_receipts": 0,
             "with_error_receipts": 0,
             "without_receipts": 0,
+            "receipt_not_required": 0,
             "success_examples": [],
             "error_examples": [],
             "empty_examples": [],
+            "skipped_examples": [],
             "error_text_counts": defaultdict(int),
         })
 
@@ -296,11 +304,23 @@ def test_webkassa_status_by_clubs(db, period_days):
 
             webkassa_ids = trans.get("webKassaIds", [])
             if not webkassa_ids:
+                if _receipt_not_required(trans):
+                    club_stats[club_id]["receipt_not_required"] += 1
+                    if len(club_stats[club_id]["skipped_examples"]) < 5:
+                        club_stats[club_id]["skipped_examples"].append({
+                            "transaction_id": trans_id,
+                            "price": trans.get("price", 0),
+                            "bonusesSpent": trans.get("bonusesSpent", 0),
+                            "created_at": trans.get("created_at"),
+                            "productType": trans.get("productType")
+                        })
+                    continue
                 club_stats[club_id]["without_receipts"] += 1
                 if len(club_stats[club_id]["empty_examples"]) < 5:
                     club_stats[club_id]["empty_examples"].append({
                         "transaction_id": trans_id,
                         "price": trans.get("price", 0),
+                        "bonusesSpent": trans.get("bonusesSpent", 0),
                         "created_at": trans.get("created_at"),
                         "productType": trans.get("productType")
                     })
@@ -378,6 +398,7 @@ def test_webkassa_status_by_clubs(db, period_days):
         total_problems_success = 0
         total_problems_errors = 0
         total_problems_empty = 0
+        total_problems_skipped = 0
 
         if clubs_with_problems:
             print(f"\n{'№':<4} {'Клуб':<40} {'Всего':<8} {'Успешн.':<10} {'Ошибки':<10} {'Без чека':<10} {'% Проблем':<10}")
@@ -387,10 +408,12 @@ def test_webkassa_status_by_clubs(db, period_days):
                 success = stats["with_success_receipts"]
                 errors = stats["with_error_receipts"]
                 empty = stats["without_receipts"]
+                skipped = stats["receipt_not_required"]
                 total_problems_trans += total
                 total_problems_success += success
                 total_problems_errors += errors
                 total_problems_empty += empty
+                total_problems_skipped += skipped
                 problem_percent = ((errors + empty) / total * 100) if total > 0 else 0
                 print(f"{idx:<4} {stats['name'][:38]:<40} {total:<8} {success:<10} {errors:<10} {empty:<10} {problem_percent:>8.1f}%")
             print("=" * 110)
@@ -406,6 +429,9 @@ def test_webkassa_status_by_clubs(db, period_days):
         total_success = total_problems_success + total_perfect_success
         total_errors = total_problems_errors
         total_empty = total_problems_empty
+        total_receipt_not_required = total_problems_skipped + sum(
+            s["receipt_not_required"] for _, s in clubs_without_problems
+        )
 
         print("\n" + "=" * 110)
         print("ОБЩАЯ СТАТИСТИКА ПО ВСЕМ КЛУБАМ")
@@ -418,6 +444,8 @@ def test_webkassa_status_by_clubs(db, period_days):
         print(f"  - С ошибочными чеками: {total_errors}")
         print(f"  - Без чеков: {total_empty}")
         print("=" * 110)
+
+        print(f"  - Р§РµРє РЅРµ С‚СЂРµР±СѓРµС‚СЃСЏ (price <= 0): {total_receipt_not_required}")
 
         success_rate = (total_success / total_transactions * 100) if total_transactions > 0 else 0
         error_rate = (total_errors / total_transactions * 100) if total_transactions > 0 else 0

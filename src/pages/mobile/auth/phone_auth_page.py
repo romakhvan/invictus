@@ -95,6 +95,15 @@ class PhoneAuthPage(BaseMobilePage):
             except Exception:
                 # Если и это не сработало, логируем но продолжаем
                 print("⚠️ Не удалось очистить поле ввода, продолжаем без очистки")
+
+    @staticmethod
+    def _format_phone_for_log(phone_number: str) -> str:
+        """Форматирует номер телефона для человекочитаемого вывода в логах."""
+        digits = "".join(c for c in str(phone_number) if c.isdigit())
+        if len(digits) >= 10:
+            digits = digits[-10:]
+            return f"+7 {digits[0:3]} {digits[3:6]} {digits[6:8]} {digits[8:10]}"
+        return str(phone_number)
     
     def enter_phone(self, phone_number: str, silent: bool = False) -> None:
         """
@@ -131,6 +140,7 @@ class PhoneAuthPage(BaseMobilePage):
             pass
         
         if not silent:
+            print(f"📱 Номер телефона для авторизации: {self._format_phone_for_log(phone_number)}")
             print(f"✅ Номер телефона введен: {phone_number}")
     
     def click_country_selector(self) -> None:
@@ -230,6 +240,10 @@ class PhoneAuthPage(BaseMobilePage):
         
         # Вводим номер (поле будет очищено автоматически)
         self.enter_phone(phone_number, silent=True)
+        print(
+            f"📱 Номер телефона для авторизации ({country_name}): "
+            f"{self._format_phone_for_log(phone_number)}"
+        )
         print(f"✅ Номер для {country_name} введен: {phone_number}")
     
     def diagnose(self) -> None:

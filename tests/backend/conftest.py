@@ -14,6 +14,85 @@ import allure
 from datetime import datetime, timedelta
 from src.config.db_config import MONGO_URI_STAGE, MONGO_URI_PROD, DB_NAME
 
+NOTIFICATIONS_TZ_URL = (
+    "https://docs.google.com/spreadsheets/d/1SyKGftlBC7CbeZsR8jBC3jqbzRZRYV6SgvF7BFLC6aw/edit?gid=0#gid=0"
+)
+
+BACKEND_MONITORING_PATHS = {
+    "tests/backend/payments/test_recent_transactions.py",
+    "tests/backend/payments/test_webkassa_monitoring.py",
+    "tests/backend/payments/bonuses/test_bonus_usage_distribution.py",
+    "tests/backend/guest_visits/test_guest_visit_actions_monitoring.py",
+    "tests/backend/guest_visits/test_guest_visits_monitoring.py",
+}
+
+BACKEND_RESEARCH_PATHS = {
+    "tests/backend/test_high_frequency_clients_no_subscription.py",
+    "tests/backend/test_statistics_2025.py",
+}
+
+
+def _normalized_backend_path(item) -> str | None:
+    """Возвращает нормализованный относительный путь backend-теста."""
+    raw_path = getattr(item, "path", None) or str(item.fspath)
+    normalized = str(raw_path).replace("\\", "/").lower()
+    prefix = "tests/backend/"
+    prefix_index = normalized.find(prefix)
+    if prefix_index == -1:
+        return None
+    return normalized[prefix_index:]
+
+
+def _has_marker(item, marker_name: str) -> bool:
+    """Проверяет, есть ли у элемента нужный marker."""
+    return any(marker.name == marker_name for marker in item.iter_markers())
+
+
+def pytest_collection_modifyitems(items):
+    """
+    Централизованно классифицирует backend-сценарии по типам.
+
+    Пока структура каталогов не разрезана на checks/monitoring/research,
+    держим явный реестр здесь, чтобы marker-ы были консистентны для запуска
+    и документации.
+    """
+    for item in items:
+        relative_path = _normalized_backend_path(item)
+        if relative_path is None:
+            continue
+
+        if not _has_marker(item, "backend"):
+            item.add_marker(pytest.mark.backend)
+
+        if relative_path in BACKEND_MONITORING_PATHS:
+            if not _has_marker(item, "backend_monitoring"):
+                item.add_marker(pytest.mark.backend_monitoring)
+            continue
+
+        if relative_path in BACKEND_RESEARCH_PATHS:
+            if not _has_marker(item, "backend_research"):
+                item.add_marker(pytest.mark.backend_research)
+            continue
+
+        if not _has_marker(item, "backend_check"):
+            item.add_marker(pytest.mark.backend_check)
+
+
+def pytest_addoption(parser):
+    """Регистрирует backend-специфичные CLI-опции только для backend suite."""
+    parser.addoption(
+        "--backend-env",
+        default="prod",
+        choices=["prod", "stage"],
+        help="Окружение MongoDB для backend тестов (prod или stage). По умолчанию: prod",
+    )
+    parser.addoption(
+        "--period-days",
+        type=int,
+        default=7,
+        help="Период анализа в днях для backend тестов. По умолчанию: 7",
+    )
+
 
 
 @pytest.fixture(scope="session")
@@ -74,3 +153,17 @@ def attach_test_period(backend_env, period_days):
         "Диапазон дат",
         f"{period_start.strftime('%Y-%m-%d')} — {now.strftime('%Y-%m-%d')}",
     )
+
+
+@pytest.fixture(autouse=True)
+def attach_notifications_tz_link(request):
+    """
+    Добавляет ссылку на ТЗ по уведомлениям во все backend-тесты из папки notifications.
+    """
+    relative_path = _normalized_backend_path(request.node)
+    if relative_path and relative_path.startswith("tests/backend/notifications/"):
+        allure.dynamic.link(
+            NOTIFICATIONS_TZ_URL,
+            name="ТЗ по уведомлениям",
+            link_type="documentation",
+        )

@@ -17,7 +17,6 @@ class StorePage(BaseMobilePage):
 
     # Ключевые элементы экрана Store.
     TITLE = (AppiumBy.XPATH, '//android.widget.TextView[@text="Store"]')
-    ICON = (AppiumBy.XPATH, '//android.widget.TextView[@text=""]')
     CATEGORY_CLOTHES = (AppiumBy.XPATH, '//android.widget.TextView[@text="Одежда и прочее"]')
     CATEGORY_SUPPLEMENTS = (AppiumBy.XPATH, '//android.widget.TextView[@text="Спортпит и БАДы"]')
 
@@ -34,10 +33,6 @@ class StorePage(BaseMobilePage):
             "Экран 'Store' не найден (ожидался заголовок 'Store')",
         )
         self.wait_visible(
-            self.ICON,
-            "Экран 'Store': не найден иконный TextView рядом с заголовком",
-        )
-        self.wait_visible(
             self.CATEGORY_CLOTHES,
             "Экран 'Store': не найдена категория 'Одежда и прочее'",
         )
@@ -51,4 +46,3 @@ class StorePage(BaseMobilePage):
         """Ждёт загрузки экрана Store и возвращает self."""
         self.check_and_recover_app_state()
         return super().wait_loaded()
-

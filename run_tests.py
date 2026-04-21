@@ -16,14 +16,16 @@ import os
 import platform
 import shutil
 import time
+from datetime import datetime
 import urllib.request
 import urllib.error
+from src.utils.allure_report_patcher import patch_allure_report
 
 # ==============================================================
 #  НАСТРОЙКИ — редактируй здесь
 # ==============================================================
 
-MODE = "backend"          # "mobile" | "backend" | "web"
+MODE = "mobile"             # "mobile" | "backend" | "monitoring" | "web"
 
 FILE = None              # None = дефолтный файл для режима:
                          #   mobile  → tests_to_run_mobile.txt
@@ -38,8 +40,11 @@ OPEN_REPORT = True       # открывать отчёт после прогон
 DEFAULT_FILES = {
     "mobile":  "tests_to_run_mobile.txt",
     "backend": "tests_to_run_backend.txt",
+    "monitoring": "tests_to_run_backend_monitoring.txt",
     "web":     "tests_to_run_web.txt",
 }
+
+TEMP_ARTIFACTS_DIR = "tmp"
 
 ALLURE_CATEGORIES_WEB = """[
   {
@@ -282,7 +287,12 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
             return 1
         print(f"SINGLE_TEST: запускается только {file_single_test}")
 
-    mode_labels = {"mobile": "мобильных", "backend": "backend", "web": "web"}
+    mode_labels = {
+        "mobile": "мобильных",
+        "backend": "backend",
+        "monitoring": "backend monitoring",
+        "web": "web",
+    }
     mode_label = mode_labels.get(mode, "")
     print(f"Запуск {len(tests)} {mode_label} тест(ов) из {file_path}:")
     for test_path, line_args in tests:
@@ -299,7 +309,18 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
     allure_dir = "allure-results"
     if generate_allure:
         if os.path.exists(allure_dir):
-            shutil.rmtree(allure_dir)
+            try:
+                shutil.rmtree(allure_dir)
+            except PermissionError:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                allure_dir = os.path.join(
+                    TEMP_ARTIFACTS_DIR,
+                    f"allure-results_{timestamp}",
+                )
+                print(
+                    f"WARNING: Не удалось очистить занятый каталог allure-results. "
+                    f"Результаты будут записаны в {allure_dir}"
+                )
         os.makedirs(allure_dir, exist_ok=True)
 
         env_props_map = {
@@ -312,6 +333,13 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
             ),
             "backend": (
                 "Project=Invictus Automated Testing (Backend)\n"
+                "Environment=Production\n"
+                "Test.Framework=Pytest\n"
+                "Database=MongoDB\n"
+                "Report.Type=Allure\n"
+            ),
+            "monitoring": (
+                "Project=Invictus Automated Testing (Backend Monitoring)\n"
                 "Environment=Production\n"
                 "Test.Framework=Pytest\n"
                 "Database=MongoDB\n"
@@ -338,7 +366,9 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
     overall_return_code = 0
 
     for test_path, line_args in tests:
-        cmd = ["pytest"] + pytest_args + line_args + [test_path]
+        # Use the active Python environment and place the test path first so
+        # backend-specific pytest options from nested conftest files are loaded.
+        cmd = [sys.executable, "-m", "pytest", test_path] + pytest_args + line_args
         print("\n" + "-" * 60)
         print("Команда:", " ".join(cmd))
         print("-" * 60)
@@ -359,7 +389,25 @@ def run_tests_from_file(file_path, pytest_args=None, generate_allure=True, open_
             print(f"Запуск Allure с результатами из {allure_dir}...")
             try:
                 is_windows = platform.system() == "Windows"
-                subprocess.run(["allure", "serve", allure_dir], shell=is_windows)
+                report_dir = "allure-report"
+                if os.path.exists(report_dir):
+                    shutil.rmtree(report_dir)
+
+                generate_cmd = ["allure", "generate", "-o", report_dir, allure_dir]
+                print("Команда:", " ".join(generate_cmd))
+                generate_result = subprocess.run(generate_cmd, shell=is_windows)
+                if generate_result.returncode != 0:
+                    raise RuntimeError(f"allure generate завершился с кодом {generate_result.returncode}")
+
+                patched = patch_allure_report(report_dir)
+                if patched:
+                    print(f"Применён локальный патч iframe-resize для {report_dir}")
+                else:
+                    print(f"WARNING: Не удалось пропатчить {report_dir} (index.html не найден)")
+
+                open_cmd = ["allure", "open", report_dir]
+                print("Команда:", " ".join(open_cmd))
+                subprocess.run(open_cmd, shell=is_windows)
             except KeyboardInterrupt:
                 print("\n\nAllure отчет закрыт пользователем")
             except Exception as e:

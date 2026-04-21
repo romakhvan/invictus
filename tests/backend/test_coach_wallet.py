@@ -1,5 +1,5 @@
 import pytest_check as check
-from src.validators.coach_wallet_validator import (
+from src.validators.coach.wallet_validator import (
     validate_coach_wallet,
     check_wallet_balance_consistency,
     check_commission_calculations,

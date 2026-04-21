@@ -8,6 +8,10 @@ import pymongo
 import time
 
 from src.config.db_config import MONGO_URI_STAGE, DB_NAME
+from src.repositories.mobile_test_users_repository import (
+    MobileTestUserScenario,
+    MobileTestUserSelector,
+)
 from tests.mobile.helpers.session_helpers import (
     ensure_coach_user_on_home_screen,
     ensure_member_user_on_home_screen,
@@ -108,6 +112,13 @@ def potential_user_on_main_screen(mobile_driver, db):
     """Драйвер на главной под пользователем role=potential."""
     ensure_new_user_on_home_screen(mobile_driver, db)
     yield mobile_driver
+
+
+@pytest.fixture
+def potential_user_context(db):
+    """Контекст существующего potential-пользователя для mobile smoke-flow."""
+    selector = MobileTestUserSelector(db)
+    return selector.select_or_skip(MobileTestUserScenario.POTENTIAL_USER)
 
 
 @pytest.fixture

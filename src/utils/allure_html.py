@@ -4,7 +4,15 @@
 
 HTML_CSS = """
 <style>
-body{font-family:Arial,sans-serif;font-size:13px;margin:16px;color:#222}
+html{height:100%;min-height:100vh;background:#fff}
+body{
+    min-height:calc(100vh - 32px);
+    font-family:Arial,sans-serif;
+    font-size:13px;
+    margin:16px;
+    color:#222;
+    box-sizing:border-box;
+}
 h2{margin:0 0 12px;font-size:15px;color:#2c3e50}
 table{border-collapse:collapse;width:auto;margin-bottom:20px}
 th{background:#d6e4f0;color:#2c3e50;padding:4px 12px;text-align:left;white-space:nowrap;font-size:12px}
@@ -16,6 +24,11 @@ tr:hover{background:#eef4fb}
 .red{color:#c0392b;font-weight:bold}
 .green{color:#27ae60}
 .gray{color:#888}
+.collapsible{margin:10px 0 18px;border:1px solid #d9e2ec;border-radius:6px;overflow:hidden}
+.collapsible summary{cursor:pointer;list-style:none;padding:10px 14px;background:#f4f7fb;color:#2c3e50;font-weight:bold}
+.collapsible summary::-webkit-details-marker{display:none}
+.collapsible summary:hover{background:#eaf1f8}
+.collapsible-body{padding:12px 14px 4px}
 .club-block{margin-bottom:24px;border:1px solid #ddd;border-radius:4px;overflow:hidden}
 .club-head{background:#34495e;color:#fff;padding:8px 14px;font-weight:bold}
 .club-sub{color:#ccc;font-size:12px;font-weight:normal}

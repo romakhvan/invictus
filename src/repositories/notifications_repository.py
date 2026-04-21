@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import re
 
 
 def _aggregate_batch_users(col, query, projection, description_label="пуша"):
@@ -34,6 +35,15 @@ def _aggregate_batch_users(col, query, projection, description_label="пуша")
     return list(all_user_ids), batch_time, latest.get("title"), latest.get("text")
 
 
+def _build_regex_condition(value: str) -> dict:
+    """
+    Строит Mongo regex condition.
+    `regex:<pattern>` трактуется как намеренный regex, все остальные строки экранируются как literal.
+    """
+    pattern = value[len("regex:"):] if isinstance(value, str) and value.startswith("regex:") else re.escape(value)
+    return {"$regex": pattern, "$options": "i"}
+
+
 def get_user_ids_with_birthday_message(db, search_text, days, limit):
     """
     Возвращает пользователей, дату создания, title и text уведомления.
@@ -44,7 +54,7 @@ def get_user_ids_with_birthday_message(db, search_text, days, limit):
 
     query = {
         "created_at": {"$gte": time_ago},
-        "description": {"$regex": search_text, "$options": "i"},
+        "description": _build_regex_condition(search_text),
     }
     projection = {"_id": 1, "created_at": 1, "description": 1, "title": 1, "text": 1, "toUsers": 1}
 
@@ -57,13 +67,18 @@ def get_user_ids_with_welcome_message(db, description, title, text, days, limit)
     Агрегирует toUsers по всем языковым версиям одного батча ([RU], [EN], [KK] и т.д.).
     """
     col = db["notifications"]
+
     time_ago = datetime.now() - timedelta(days=days)
 
-    query = {
-        "created_at": {"$gte": time_ago},
-        "title": {"$regex": title, "$options": "i"},
-        "description": {"$regex": description, "$options": "i"},
-    }
+    query = {"created_at": {"$gte": time_ago}}
+
+    if description:
+        query["description"] = _build_regex_condition(description)
+    if title:
+        query["title"] = _build_regex_condition(title)
+    if text:
+        query["text"] = _build_regex_condition(text)
+
     projection = {"_id": 1, "created_at": 1, "description": 1, "title": 1, "text": 1, "toUsers": 1}
 
     return _aggregate_batch_users(col, query, projection, description_label="welcome/inactive пуша")

@@ -23,8 +23,8 @@ class ClubDetailsPage(BaseMobilePage):
     )
     # Секция описания зала.
     ABOUT_HALL_LABEL = (AppiumBy.XPATH, '//android.widget.TextView[@text="О зале"]')
-    # Цена абонемента (меняется; проверяем только наличие символа валюты '₸').
-    PRICE_LABEL = (AppiumBy.XPATH, '//android.widget.TextView[contains(@text, "на год")]')
+    # Цена абонемента меняется, поэтому проверяем только наличие символа валюты.
+    PRICE_LABEL = (AppiumBy.XPATH, '//android.widget.TextView[contains(@text, "₸")]')
     # CTA‑кнопка «Выбрать абонемент».
     CHOOSE_MEMBERSHIP_BUTTON = (
         AppiumBy.ACCESSIBILITY_ID,
@@ -63,4 +63,3 @@ class ClubDetailsPage(BaseMobilePage):
         """Ждёт загрузки экрана деталей клуба и возвращает self."""
         self.check_and_recover_app_state()
         return super().wait_loaded()
-

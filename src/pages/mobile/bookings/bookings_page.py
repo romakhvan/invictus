@@ -73,9 +73,10 @@ class BookingsPage(BaseShellPage):
         '//android.widget.TextView[@text="Вопросы и ответы"]',
     )
 
-    # Табы переключения вида («Все возможности» / «Расписание»)
+    # Табы переключения вида («Все возможности» / «Записи»)
     TAB_ALL_ACTIVITIES = (AppiumBy.ACCESSIBILITY_ID, "Все возможности")
-    TAB_SCHEDULE = (AppiumBy.ACCESSIBILITY_ID, "Расписание")
+    TAB_RECORDS = (AppiumBy.ACCESSIBILITY_ID, "Записи")
+    TAB_SCHEDULE = TAB_RECORDS
 
     def __init__(self, driver: Remote):
         super().__init__(driver)
@@ -130,9 +131,9 @@ class BookingsPage(BaseShellPage):
         Returns:
             True, если экран выбора клуба был обнаружен и обработан; иначе False.
         """
-        from src.pages.mobile.common.city_selector_page import CitySelectorPage
+        from src.pages.mobile.common.club_filter_component import ClubFilterComponent
 
-        selector = CitySelectorPage(self.driver)
+        selector = ClubFilterComponent(self.driver)
         try:
             selector.wait_visible(
                 selector.ALL_CITIES_FILTER,
@@ -149,9 +150,9 @@ class BookingsPage(BaseShellPage):
         Если для раздела «Доктора» открылся список городов, выбрать город
         по умолчанию и продолжить навигацию.
         """
-        from src.pages.mobile.common.city_selector_page import CitySelectorPage
+        from src.pages.mobile.common.club_filter_component import ClubFilterComponent
 
-        selector = CitySelectorPage(self.driver)
+        selector = ClubFilterComponent(self.driver)
         if selector.get_state(timeout=timeout) != "cities_list":
             return False
 
@@ -297,10 +298,10 @@ class BookingsPage(BaseShellPage):
         return self
 
     def switch_to_schedule_tab(self) -> "BookingsPage":
-        """Переключиться на таб «Расписание»."""
+        """Переключиться на таб «Записи»."""
         self.click(self.TAB_SCHEDULE)
         self.wait_invisible(
             self.SECTION_PERSONAL_TITLE,
-            "Секции не исчезли после переключения на таб 'Расписание'",
+            "Секции не исчезли после переключения на таб 'Записи'",
         )
         return self

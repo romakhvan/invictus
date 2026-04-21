@@ -1,20 +1,15 @@
 import pytest
-import pymongo
 import os
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from src.config.db_config import MONGO_URI_PROD, DB_NAME
 from src.utils.mobile_debug_menu import interactive_debug_menu
 from src.utils.telegram_notifier import send_test_notification
 from src.utils.ui_helpers import take_screenshot
+from tests.mobile.helpers.app_lifecycle import ensure_mobile_app_in_foreground
 
 # Загрузка переменных окружения из .env
 load_dotenv()
-
-# Для обратной совместимости используем PROD по умолчанию
-# Но фикстуры в tests/backend/ и tests/mobile/ переопределяют это поведение
-MONGO_URI = MONGO_URI_PROD
 
 # Опциональный импорт Playwright (для веб-тестов)
 try:
@@ -37,18 +32,6 @@ except ImportError:
 
 def pytest_addoption(parser):
     """Добавляем кастомные опции командной строки."""
-    parser.addoption(
-        "--backend-env",
-        default="prod",
-        choices=["prod", "stage"],
-        help="Окружение MongoDB для backend тестов (prod или stage). По умолчанию: prod",
-    )
-    parser.addoption(
-        "--period-days",
-        type=int,
-        default=7,
-        help="Период анализа в днях для backend тестов. По умолчанию: 7",
-    )
     parser.addoption(
         "--keepalive",
         action="store_true",
@@ -84,19 +67,6 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     """Синхронизирует флаги pytest с runtime-настройками логирования."""
     os.environ["MOBILE_UI_LOGS"] = "1" if config.getoption("--mobile-ui-logs") else "0"
-
-
-# ==================== Backend фикстуры ====================
-
-@pytest.fixture(scope="session")
-def db():
-    """Фикстура для подключения к MongoDB."""
-    print("\n🔌 Connecting to MongoDB...")
-    client = pymongo.MongoClient(MONGO_URI)
-    db = client[DB_NAME]
-    yield db
-    print("\n🧹 Closing Mongo connection.")
-    client.close()
 
 
 # ==================== Web фикстуры (Playwright) ====================
@@ -724,6 +694,7 @@ def appium_driver(request):
 def mobile_driver(appium_driver):
     """Фикстура для получения Appium WebDriver объекта."""
     driver = appium_driver.get_driver()
+    ensure_mobile_app_in_foreground(driver)
     
     # Опциональный программный перезапуск приложения перед каждым тестом.
     # По умолчанию выключен: AppiumDriver.start(...) уже запускает приложение.

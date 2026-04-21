@@ -55,9 +55,9 @@ src/
 ## Этап 0. Подготовка и правила
 
 Статус:
-- [ ] Зафиксировать текущую структуру и договориться о новых папках
-- [ ] Ввести marker-ы `backend_check`, `backend_monitoring`, `backend_research`
-- [ ] Запретить добавление новых аналитических сценариев в общий backend suite
+- [x] Зафиксировать текущую структуру и договориться о новых папках
+- [x] Ввести marker-ы `backend_check`, `backend_monitoring`, `backend_research`
+- [x] Запретить добавление новых аналитических сценариев в общий backend suite
 
 Что делаем:
 - Обновить `pytest.ini`
@@ -72,9 +72,9 @@ src/
 Приоритет: очень высокий
 
 Статус:
-- [ ] Вынести непадающие сценарии из общего списка запуска
-- [ ] Создать отдельный файл запуска для monitoring
-- [ ] Сохранить Allure-репорты, но убрать их из gate-прогона
+- [x] Вынести непадающие сценарии из общего списка запуска
+- [x] Создать отдельный файл запуска для monitoring
+- [x] Сохранить Allure-репорты, но убрать их из gate-прогона
 
 Кандидаты на перенос в `monitoring`:
 - `tests/backend/payments/test_recent_transactions.py`
@@ -111,9 +111,9 @@ src/
 Приоритет: высокий
 
 Статус:
-- [ ] Убрать backend-специфику из общего `tests/conftest.py`
-- [ ] Оставить backend-фикстуры только в `tests/backend/conftest.py`
-- [ ] Свести к одному источнику правды для `db`, `backend_env`, `period_days`
+- [x] Убрать backend-специфику из общего `tests/conftest.py`
+- [x] Оставить backend-фикстуры только в `tests/backend/conftest.py`
+- [x] Свести к одному источнику правды для `db`, `backend_env`, `period_days`
 
 Что делаем:
 - Перенести всё backend-специфичное в `tests/backend/conftest.py`
@@ -131,6 +131,19 @@ src/
 - [ ] Перестать писать Mongo-запросы прямо в test-файлах
 - [ ] Вынести чтение данных в `src/repositories/...`
 - [ ] Вынести вычисление нарушений в `src/services/backend_checks/...`
+
+Текущий прогресс этапа:
+- Уже созданы `src/repositories/payments/` и `src/repositories/trainings/`
+- Уже созданы `src/services/backend_checks/payments_checks_service.py` и `src/services/backend_checks/trainings_checks_service.py`
+- Уже созданы `src/services/reporting/payments_text_reports.py` и `src/services/reporting/trainings_text_reports.py`
+- На новый шаблон уже переведены:
+  - `tests/backend/payments/test_freeze_days_no_duplicate.py`
+  - `tests/backend/payments/bonuses/test_forbidden_types_no_bonus_spend.py`
+  - `tests/backend/payments/bonuses/test_bonus_deduction_consistency.py`
+  - `tests/backend/payments/test_promo_code_discount.py`
+  - `tests/backend/payments/test_internal_error_transactions.py`
+  - `tests/backend/payments/test_subscription_access_type.py`
+  - `tests/backend/trainings/test_personal_trainings_consistency.py`
 
 Правило для новых тестов:
 - test-файл только orchestration
@@ -181,8 +194,9 @@ def test_some_rule(db, period_days):
 Самые тяжёлые файлы:
 - `tests/backend/test_statistics_2025.py`
 - `tests/backend/payments/test_webkassa_monitoring.py`
-- `tests/backend/payments/test_subscription_access_type.py`
-- `tests/backend/trainings/test_personal_trainings_consistency.py`
+- `tests/backend/payments/bonuses/test_subscription_bonus_accrual.py`
+- `tests/backend/payments/bonuses/test_visit_bonus_accrual.py`
+- `tests/backend/payments/bonuses/test_deduction_limits_by_plan.py`
 
 Подход:
 1. Выделить query functions
@@ -217,19 +231,19 @@ def test_some_rule(db, period_days):
 
 ## Быстрые победы на 1-2 дня
 
-- [ ] Убрать `test_recent_transactions.py` из основного backend списка
-- [ ] Убрать `test_bonus_usage_distribution.py` из основного backend списка
-- [ ] Добавить новые marker-ы в `pytest.ini`
+- [x] Убрать `test_recent_transactions.py` из основного backend списка
+- [x] Убрать `test_bonus_usage_distribution.py` из основного backend списка
+- [x] Добавить новые marker-ы в `pytest.ini`
 - [ ] Исправить backend Allure environment в `run_tests.py`
-- [ ] Зафиксировать дефолтную стратегию окружений в `docs/backend_testing_strategy.md`
+- [x] Зафиксировать дефолтную стратегию окружений в `docs/backend_testing_strategy.md`
 
 ## Первая волна рефакторинга по файлам
 
 ### Волна 1
 
-- [ ] `tests/backend/payments/test_recent_transactions.py`
-- [ ] `tests/backend/payments/bonuses/test_bonus_usage_distribution.py`
-- [ ] `tests/backend/test_statistics_2025.py`
+- [x] `tests/backend/payments/test_recent_transactions.py`
+- [x] `tests/backend/payments/bonuses/test_bonus_usage_distribution.py`
+- [x] `tests/backend/test_statistics_2025.py`
 
 Цель:
 - классифицировать и вынести из основного suite
@@ -237,8 +251,13 @@ def test_some_rule(db, period_days):
 ### Волна 2
 
 - [ ] `tests/backend/payments/test_webkassa_monitoring.py`
-- [ ] `tests/backend/payments/test_subscription_access_type.py`
-- [ ] `tests/backend/trainings/test_personal_trainings_consistency.py`
+- [x] `tests/backend/payments/test_freeze_days_no_duplicate.py`
+- [x] `tests/backend/payments/bonuses/test_forbidden_types_no_bonus_spend.py`
+- [x] `tests/backend/payments/bonuses/test_bonus_deduction_consistency.py`
+- [x] `tests/backend/payments/test_promo_code_discount.py`
+- [x] `tests/backend/payments/test_internal_error_transactions.py`
+- [x] `tests/backend/payments/test_subscription_access_type.py`
+- [x] `tests/backend/trainings/test_personal_trainings_consistency.py`
 
 Цель:
 - разрезать на query/service/report
@@ -282,12 +301,23 @@ def test_some_rule(db, period_days):
 
 ### Выполнено
 
-- [ ] Ничего не отмечено
+- [x] Добавлены marker-ы `backend_check`, `backend_monitoring`, `backend_research`
+- [x] Введена централизованная классификация backend-сценариев в `tests/backend/conftest.py`
+- [x] Monitoring-сценарии вынесены из `tests_to_run_backend.txt` в `tests_to_run_backend_monitoring.txt`
+- [x] Обновлена стратегия запуска и правила для backend suite в `docs/backend_testing_strategy.md`
+- [x] Backend CLI-опции и MongoDB-фикстуры убраны из `tests/conftest.py` и оставлены в `tests/backend/conftest.py`
+- [x] Для `test_freeze_days_no_duplicate.py` и `test_forbidden_types_no_bonus_spend.py` введён шаблон `test -> repository -> service -> report`
+- [x] На тот же шаблон переведён `test_bonus_deduction_consistency.py`
+- [x] На новый шаблон также переведены `test_promo_code_discount.py` и `test_internal_error_transactions.py`
+- [x] На новый шаблон переведён `test_subscription_access_type.py`
+- [x] Для `test_personal_trainings_consistency.py` выделены `src/repositories/trainings/`, `src/services/backend_checks/trainings_checks_service.py` и `src/services/reporting/trainings_text_reports.py`
 
 ### В работе
 
-- [ ] Не заполнено
+- [ ] Поэтапный перенос backend checks с прямыми `.find(...)` из тестов в `src/repositories/payments/`, `src/repositories/trainings/` и `src/services/backend_checks/`
+- [ ] Следующие кандидаты этапа 4: нет, текущая волна bonus-check сценариев закрыта
 
 ### Следующий шаг
 
-- [ ] Перенести аналитические сценарии из `tests_to_run_backend.txt` в отдельный monitoring-профиль
+- [ ] Закрыть текущую волну этапа 4 на оставшихся bonus-check сценариях
+- [ ] После этого вернуться к этапу 2: убрать prod-first defaults и сделать `stage` безопасным дефолтом для backend checks

@@ -2,6 +2,7 @@ from typing import Any, Optional, Dict, List
 from datetime import datetime, timedelta
 from pprint import pprint
 from collections import defaultdict
+import re
 
 from src.utils.debug_utils import log_function_call
 from src.utils.repository_helpers import get_collection
@@ -80,6 +81,71 @@ def get_transactions_with_coach(
         if first_date and last_date:
             print(f"   Диапазон дат: {last_date.strftime('%Y-%m-%d %H:%M:%S')} - {first_date.strftime('%Y-%m-%d %H:%M:%S')}")
     
+    return transactions
+
+
+def _normalize_amount_to_number(amount_value: Any) -> int | None:
+    """Нормализует сумму из UI/БД к целому числу тенге."""
+    if amount_value is None:
+        return None
+    if isinstance(amount_value, (int, float)):
+        return int(amount_value)
+    digits = re.sub(r"[^\d]", "", str(amount_value))
+    if not digits:
+        return None
+    return int(digits)
+
+
+@log_function_call
+def get_recent_transaction_by_user(
+    db,
+    *,
+    user_id: Any,
+    since: datetime,
+    expected_amount: Any | None = None,
+    limit: int = 1,
+) -> list[dict[str, Any]]:
+    """
+    Возвращает свежие транзакции пользователя начиная с указанного времени.
+
+    Args:
+        db: Database connection
+        user_id: _id пользователя
+        since: Нижняя граница created_at
+        expected_amount: Ожидаемая сумма транзакции (например '2 990 ₸' или 2990)
+        limit: Максимум записей на возврат
+    """
+    col = get_collection(db, "transactions")
+    query: dict[str, Any] = {
+        "userId": user_id,
+        "created_at": {"$gte": since},
+    }
+
+    normalized_amount = _normalize_amount_to_number(expected_amount)
+    if normalized_amount is not None:
+        query["price"] = normalized_amount
+
+    projection = {
+        "_id": 1,
+        "userId": 1,
+        "price": 1,
+        "status": 1,
+        "productType": 1,
+        "created_at": 1,
+        "source": 1,
+        "paidFor": 1,
+    }
+
+    transactions = list(
+        col.find(query, projection).sort("created_at", -1).limit(limit)
+    )
+
+    print(f"\n🔍 Поиск свежих transactions по userId={user_id}")
+    print(f"   since: {since.strftime('%Y-%m-%d %H:%M:%S')}")
+    if normalized_amount is not None:
+        print(f"   expected price: {normalized_amount}")
+    print(f"   найдено: {len(transactions)}")
+
     return transactions
 
 

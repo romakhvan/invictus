@@ -1,0 +1,19 @@
+# Project-scoped MCP config for Codex.
+# Loaded for this trusted workspace by both the Codex IDE extension and CLI.
+
+[mcp_servers.appium]
+command = "appium-mcp"
+args = []
+env = { ANDROID_HOME = "C:\\Users\\user\\AppData\\Local\\Android\\Sdk", ANDROID_SDK_ROOT = "C:\\Users\\user\\AppData\\Local\\Android\\Sdk" }
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+# MongoDB PROD MCP.
+# Reads PROD credentials from the local .env file and starts MongoDB MCP in read-only mode.
+[mcp_servers.mongo_prod]
+command = "powershell"
+args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ".codex\\start-mongo-prod-mcp.ps1"]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true

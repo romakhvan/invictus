@@ -27,13 +27,19 @@ def find_users_with_birthday_and_subscription(db, target_date):
 @log_function_call
 def check_birthday_push(db, days=7, limit=1):
     """
-    🎂 Проверяет, что пуш '{{name}}, с днём рождения 💛' отправлен пользователям
+    🎂 Проверяет, что birthday push отправлен пользователям
     с активной подпиской на момент отправки.
     """
     config = PushValidationConfig(
         name="Birthday Push Validation",
-        expected_title="{{name}}, с днём рождения 💛",
-        expected_text="Сегодня самое время сказать спасибо за то, что вы с нами! Здоровья и побед!",
+        expected_title=(
+            "{{name}}, с днём рождения 💛",
+            "{{name}}, happy birthday💛",
+        ),
+        expected_text=(
+            "Сегодня самое время сказать спасибо за то, что вы с нами! Здоровья и побед!",
+            "Today is the perfect time to say thank you for being with us! Wishing you health and victories!",
+        ),
         fetch_function=get_user_ids_with_birthday_message,
         get_recipients_function=find_users_with_birthday_and_subscription,
         fetch_kwargs={"search_text": "День рождения когда есть абонемент"},

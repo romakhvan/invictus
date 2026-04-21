@@ -1,0 +1,29 @@
+# Список backend monitoring-сценариев для отдельного запуска
+# Запуск: python run_tests.py  (MODE = "monitoring")
+#
+# Этот профиль не используется как gate-прогон.
+# Здесь оставляем мониторинг и аналитические отчеты с Allure-вложениями.
+#
+# Формат: путь к тесту | флаги pytest (флаги необязательны)
+#   tests\backend\test_foo.py | -v -k bar
+#
+# PYTEST_ARGS: -q --tb=no --no-header
+# PERIOD_DAYS: 7
+# SINGLE_TEST: tests\backend\payments\test_webkassa_monitoring.py
+
+
+# --- Payments / Monitoring ---
+tests\backend\payments\test_webkassa_monitoring.py
+tests\backend\payments\test_recent_transactions.py
+tests\backend\payments\bonuses\test_bonus_usage_distribution.py
+tests\backend\payments\bonuses\test_bonus_usage_monitoring.py
+
+
+# --- Notifications / Monitoring ---
+tests\backend\notifications\test_guest_visit_actions_monitoring.py
+tests\backend\notifications\test_guest_visits_monitoring.py
+
+
+# --- Research (не входит в monitoring-профиль по умолчанию) ---
+# tests\backend\test_statistics_2025.py
+# tests\backend\test_high_frequency_clients_no_subscription.py

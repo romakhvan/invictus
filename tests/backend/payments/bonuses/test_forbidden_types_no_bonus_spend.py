@@ -11,12 +11,14 @@
 
 import pytest
 import allure
-from datetime import datetime, timedelta
 
-from src.utils.repository_helpers import get_collection
-
-# Типы транзакций, для которых бонусы НИКОГДА не должны списываться
-FORBIDDEN_TYPES = ["recurrent", "rabbitHoleV2", "saveCard", "fillBalance", "freezing"]
+from src.services.backend_checks.payments_checks_service import (
+    FORBIDDEN_BONUS_PRODUCT_TYPES,
+    run_forbidden_bonus_spend_check,
+)
+from src.services.reporting.payments_text_reports import (
+    build_forbidden_bonus_spend_report,
+)
 
 
 @pytest.mark.backend
@@ -30,65 +32,27 @@ def test_forbidden_types_no_bonus_spend(db, period_days):
     Проверяет, что транзакции с productType из списка запрещённых
     не содержат bonusesSpent > 0.
     """
-    col = get_collection(db, "transactions")
-    since = datetime.now() - timedelta(days=period_days)
+    with allure.step(f"Проверить запрещённые productType за {period_days} дней"):
+        result = run_forbidden_bonus_spend_check(
+            db=db,
+            period_days=period_days,
+            forbidden_types=FORBIDDEN_BONUS_PRODUCT_TYPES,
+        )
 
-    with allure.step(f"Найти транзакции запрещённых типов с bonusesSpent > 0 за {period_days} дней"):
-        violations = list(col.find(
-            {
-                "status": "success",
-                "productType": {"$in": FORBIDDEN_TYPES},
-                "bonusesSpent": {"$gt": 0},
-                "created_at": {"$gte": since},
-            },
-            {
-                "_id": 1,
-                "productType": 1,
-                "bonusesSpent": 1,
-                "price": 1,
-                "created_at": 1,
-                "clubId": 1,
-                "userId": 1,
-            },
-        ).sort("created_at", -1))
+    allure.dynamic.parameter("Запрещённых productType", len(result.forbidden_types))
+    allure.dynamic.parameter("Нарушений найдено", result.violations_count)
 
-    allure.dynamic.parameter("Нарушений найдено", len(violations))
+    report = build_forbidden_bonus_spend_report(result)
 
-    if not violations:
+    if not result.violation_groups:
         allure.attach(
-            "Нарушений не найдено. Все запрещённые типы работают корректно.",
+            report,
             name="Результат",
             attachment_type=allure.attachment_type.TEXT,
         )
         return
 
-    # Группируем по productType для наглядности
     with allure.step("Сгруппировать нарушения по productType"):
-        from collections import defaultdict
-        by_type = defaultdict(list)
-        for v in violations:
-            by_type[v.get("productType", "—")].append(v)
-
-        lines = [
-            f"Нарушений: {len(violations)} | Типов: {len(by_type)}",
-            "",
-        ]
-        for product_type, txs in sorted(by_type.items(), key=lambda x: -len(x[1])):
-            lines.append(f"{product_type} ({len(txs)})")
-            for t in txs[:10]:
-                created_at = t.get("created_at")
-                date_str = created_at.strftime("%Y-%m-%d %H:%M:%S") if created_at else "—"
-                price = t.get("price", 0)
-                spent = t.get("bonusesSpent", 0)
-                pct = round(spent / price * 100, 1) if price else "?"
-                lines.append(
-                    f"  - {date_str} | {t['_id']} | цена={price} тг | списано={spent} тг ({pct}%)"
-                )
-            if len(txs) > 10:
-                lines.append(f"  ... и ещё {len(txs) - 10}")
-            lines.append("")
-
-        report = "\n".join(lines)
         print("\n" + report)
         allure.attach(
             report,
@@ -96,10 +60,11 @@ def test_forbidden_types_no_bonus_spend(db, period_days):
             attachment_type=allure.attachment_type.TEXT,
         )
 
-    first = violations[0]
-    assert len(violations) == 0, (
-        f"Найдено {len(violations)} транзакций запрещённых типов со списанием бонусов. "
-        f"Типы: {list(by_type.keys())}. "
-        f"Первая: id={first['_id']}, productType={first.get('productType')}, "
-        f"bonusesSpent={first.get('bonusesSpent')}, дата={first.get('created_at')}"
+    first_group = result.violation_groups[0]
+    first_violation = first_group.transactions[0]
+    assert result.violations_count == 0, (
+        f"Найдено {result.violations_count} транзакций запрещённых типов со списанием бонусов. "
+        f"Типы: {[group.product_type for group in result.violation_groups]}. "
+        f"Первая: id={first_violation['_id']}, productType={first_violation.get('productType')}, "
+        f"bonusesSpent={first_violation.get('bonusesSpent')}, дата={first_violation.get('created_at')}"
     )

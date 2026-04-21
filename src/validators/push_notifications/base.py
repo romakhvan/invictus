@@ -7,7 +7,7 @@
 - compare_push_recipients: функция сравнения списков получателей
 """
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 import pytest_check as check
 import json
 try:
@@ -16,6 +16,9 @@ try:
 except ImportError:
     ALLURE_AVAILABLE = False
 from src.utils.check_helpers import log_check
+
+
+ExpectedPushField = str | Sequence[str]
 
 
 @dataclass
@@ -27,8 +30,8 @@ class PushValidationConfig:
     чтобы избежать дублирования кода между разными типами пушей.
     """
     name: str
-    expected_title: str
-    expected_text: str
+    expected_title: ExpectedPushField
+    expected_text: ExpectedPushField
     fetch_function: Callable
     get_recipients_function: Callable
     fetch_kwargs: Optional[dict] = None
@@ -38,6 +41,52 @@ class PushValidationConfig:
         """Инициализация значений по умолчанию"""
         if self.fetch_kwargs is None:
             self.fetch_kwargs = {}
+
+
+def _normalize_push_value(value: str) -> str:
+    """Нормализует текст пуша для tolerant-сравнения."""
+    return str(value).strip().lower()
+
+
+def _matches_expected_value(actual: str, expected: str) -> bool:
+    """
+    Поддерживает точное сравнение и regex-шаблоны в формате ``regex:<pattern>``.
+    """
+    if expected.startswith("regex:"):
+        import re
+
+        pattern = expected[len("regex:"):]
+        return re.fullmatch(pattern, str(actual).strip(), flags=re.IGNORECASE) is not None
+
+    return _normalize_push_value(actual) == _normalize_push_value(expected)
+
+
+def validate_push_field(label: str, actual: str, expected: ExpectedPushField) -> bool:
+    """
+    Проверяет поле пуша against one or many allowed values.
+    """
+    expected_values = [expected] if isinstance(expected, str) else list(expected)
+    if len(expected_values) == 1:
+        log_check(label, actual, expected_values[0])
+        return _matches_expected_value(actual, expected_values[0])
+
+    matched_value = next(
+        (value for value in expected_values if _matches_expected_value(actual, value)),
+        None
+    )
+
+    if matched_value is not None:
+        print(f"[OK] {label}: '{actual}'")
+        print(f"[INFO] Допустимый вариант: '{matched_value}'")
+        return True
+
+    expected_display = " | ".join(f"'{value}'" for value in expected_values)
+    print(f"[FAIL] {label}: '{actual}' (ожидался один из вариантов: {expected_display})")
+    check.is_true(
+        False,
+        f"[FAIL] {label} отличается.\nОжидался один из вариантов: {expected_display}\nПолучено: '{actual}'"
+    )
+    return False
 
 
 def compare_push_recipients(push_user_ids: list, expected_users: list, entity_name: str = "пользователей") -> bool:
@@ -190,8 +239,8 @@ def validate_push(db, config: PushValidationConfig, days=7, limit=1):
     print("[STEP 1] Проверка содержимого пуша")
     print(f"{'='*50}")
     
-    log_check("title", title, config.expected_title)
-    log_check("text", text, config.expected_text)
+    validate_push_field("title", title, config.expected_title)
+    validate_push_field("text", text, config.expected_text)
     
     # ---------- STEP 2: Получение ожидаемых получателей ----------
     print(f"\n{'='*50}")

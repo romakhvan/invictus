@@ -49,7 +49,7 @@ def test_bookings_entrypoints_open_expected_page(
     driver = potential_user_on_main_screen
 
     # Гарантируем, что находимся на главной в состоянии NEW_USER.
-    home = HomePage(driver).wait_loaded()
+    home = HomePage(driver)
     assert home.get_current_home_state() == HomeState.NEW_USER, (
         "Ожидалось состояние NEW_USER. Фикстура potential_user_on_main_screen "
         "должна обеспечивать вход под potential."

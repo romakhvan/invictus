@@ -48,7 +48,7 @@ pytest tests/mobile/bookings/test_bookings_entrypoints.py -v -m mobile --mobile-
 pytest tests/mobile/bookings/test_bookings_entrypoints.py -v -m mobile --mobile-no-reset -k personal --keepalive
 ```
 
-Allure results are written to `allure-results/` on every run (`--clean-alluredir` wipes them first).
+Allure results are written to `allure-results/` on every run (`--clean-alluredir` wipes them first). For the repo-level Allure documentation map, see `docs/allure/README.md`.
 
 **Rule: every new test file must be added to the corresponding run list:**
 - Mobile tests → `tests_to_run_mobile.txt`
@@ -134,6 +134,11 @@ The `potential_user_on_main_screen` fixture (defined in `tests/mobile/conftest.p
 2. Checks the currently logged-in user's role via profile screen → MongoDB lookup.
 3. If wrong user or not logged in, calls `run_auth_to_main()` (OTP auth helper) using a `role=potential` user from MongoDB STAGE.
 
+**Rule: onboarding depends on `usermetadatas`.**
+- If a client already has a record in MongoDB collection `usermetadatas`, onboarding in the mobile app does **not** occur after auth.
+- For tests that must land on the main screen right after OTP auth, use a `role=potential` user with a `usermetadatas` record.
+- For tests that must verify the full onboarding flow, use a fresh phone/user without a `usermetadatas` record.
+
 `tests/mobile/helpers/` contains reusable flows: `auth_helpers.py`, `onboarding_helpers.py`, `session_helpers.py`, `profile_helpers.py`.
 
 **Boundary rules for `helpers/` vs Page Objects:**
@@ -166,7 +171,10 @@ MongoDB access objects, one per collection: `users_repository.py`, `subscription
 - Each test must have a clear and descriptive title
 - Steps should reflect business logic, not just technical actions
 - Backend tests must automatically include: environment (`--backend-env`) and analysis period (`period_days`)
+- The analysis period must be clearly visible in the Allure report itself, not only implied by fixtures or code
+- The report must show how many records were processed in total, even when all of them passed successfully
 - On failure, attach key debugging data: identifiers (e.g. `user_id`, `transaction_id`), expected vs actual values, query results or snapshots where applicable
+- When failures contain historical records, highlight the latest erroneous record so it is clear whether the bug is still happening now
 
 **Run-list consistency across test types**
 - Every test file must be added to its corresponding run-list
@@ -208,6 +216,9 @@ MongoDB access objects, one per collection: `users_repository.py`, `subscription
 - Keep reports readable for non-developers (QA, product, analysts)
 - Attach only meaningful data (avoid noise)
 - Prefer compact output format in both Allure attachments and console `print()`: one line per entity with `|`-separated fields (e.g. `- 2025-01-01 12:00:00 | trans_id | 5 000 тг | ошибка`), grouped by entity header (`Club X (N)`). Avoid verbose multi-line blocks per record — they hurt readability when there are many items.
+- When needed, present the same dataset in multiple report tables with different groupings so the problem is visually obvious from several angles
+- In report tables, include names, ids, record counts, types, and other identifying columns where they improve understanding
+- For backend tests, follow the detailed standard in `docs/allure/backend_reporting_rules.md`
 
 **Run-list scalability**
 - Keep run-lists clean and structured (group by feature/domain)

@@ -1,0 +1,33 @@
+{
+  "servers": {
+    "MongoDB": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "C:\\Users\\user\\.cursor\\mcp\\mongodb\\node_modules\\mongodb-mcp-server\\dist\\index.js",
+        "--readOnly"
+      ],
+      "env": {
+        "MDB_MCP_CONNECTION_STRING": "mongodb://mainAdmin:CJlur282BNHgw0j@10.3.3.41:27017,10.3.4.41:27017,10.3.5.41:27017/"
+      }
+    },
+    "postgres-readonly": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://qa_eng:Qwedsa3221%23@10.2.3.22:5432/master"
+      ]
+    },
+    "appium": {
+      "type": "stdio",
+      "command": "appium-mcp",
+      "args": [],
+      "env": {
+        "ANDROID_HOME": "C:\\Users\\user\\AppData\\Local\\Android\\Sdk",
+        "ANDROID_SDK_ROOT": "C:\\Users\\user\\AppData\\Local\\Android\\Sdk"
+      }
+    }
+  }
+}
