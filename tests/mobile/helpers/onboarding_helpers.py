@@ -26,16 +26,36 @@ from src.pages.mobile.home import (
     HomePage,
     HomeState,
     HomeNewUserContent,
+    HomeRabbitHoleContent,
     HomeSubscribedContent,
     HomeMemberContent,
 )
+from tests.mobile.helpers.screen_detection import (
+    MobileScreen,
+    detect_current_screen,
+    home_state_for_screen,
+)
+
+
+def _detect_locators(content_cls):
+    return getattr(content_cls, "DETECT_LOCATORS", (content_cls.DETECT_LOCATOR,))
 
 
 _HOME_STATE_DETECTORS = [
-    (HomeState.NEW_USER, HomeNewUserContent.DETECT_LOCATOR),
-    (HomeState.SUBSCRIBED, HomeSubscribedContent.DETECT_LOCATOR),
-    (HomeState.MEMBER, HomeMemberContent.DETECT_LOCATOR),
+    (HomeState.RABBIT_HOLE, _detect_locators(HomeRabbitHoleContent)),
+    (HomeState.NEW_USER, _detect_locators(HomeNewUserContent)),
+    (HomeState.SUBSCRIBED, _detect_locators(HomeSubscribedContent)),
+    (HomeState.MEMBER, _detect_locators(HomeMemberContent)),
 ]
+
+
+def _format_phone_for_log(phone: str) -> str:
+    """Форматирует номер телефона для единого вывода в mobile-логах."""
+    digits = "".join(c for c in str(phone) if c.isdigit())
+    if len(digits) >= 10:
+        digits = digits[-10:]
+        return f"+7 {digits[0:3]} {digits[3:6]} {digits[6:8]} {digits[8:10]}"
+    return str(phone)
 
 
 def _validate_home_state(home: HomePage, expected_state: HomeState | None) -> HomePage:
@@ -71,8 +91,8 @@ def _get_current_home_if_ready(
             key=lambda item: item[0] != expected_state,
         )
 
-    for state, locator in detectors:
-        if home.is_visible(locator, timeout=1):
+    for state, locators in detectors:
+        if any(home.is_visible(locator, timeout=1) for locator in locators):
             current_state = state
             break
 
@@ -109,6 +129,7 @@ def run_auth_to_home(driver: "Remote", phone: str, expected_state: HomeState | N
     Returns:
         HomePage: Загруженная главная страница.
     """
+    print(f"\n📱 Авторизация выполняется под номером: {_format_phone_for_log(phone)}")
     last_error: Exception | None = None
 
     for attempt in range(2):
@@ -119,18 +140,31 @@ def run_auth_to_home(driver: "Remote", phone: str, expected_state: HomeState | N
             preview = PreviewPage(driver)
             preview.check_and_recover_app_state()
 
-            home = _get_current_home_if_ready(driver, expected_state=expected_state)
-            if home is not None:
-                return home
+            screen = detect_current_screen(driver)
+            print(f"\nℹ️ Текущий экран перед авторизацией: {screen.value}")
 
-            if preview.is_visible(preview.START_BUTTON, timeout=3):
+            home_state = home_state_for_screen(screen)
+            if home_state is not None:
+                if expected_state is None or home_state == expected_state:
+                    print(
+                        "\nℹ️ После запуска уже открыта главная "
+                        f"({home_state.value}); повторная авторизация не требуется."
+                    )
+                    return HomePage(driver)
+                print(
+                    "\nℹ️ После запуска уже открыта главная, "
+                    f"но в состоянии {home_state.value} вместо ожидаемого {expected_state.value}. "
+                    "Продолжаем сценарий авторизации."
+                )
+
+            if screen == MobileScreen.PREVIEW:
                 preview.wait_loaded()
                 preview.skip_preview()
                 phone_page = PhoneAuthPage(driver).wait_loaded()
-            elif PhoneAuthPage(driver).is_visible(PhoneAuthPage.HEADER, timeout=3):
+            elif screen == MobileScreen.PHONE_AUTH:
                 print("\nℹ️ Продолжаем авторизацию с экрана ввода телефона")
                 phone_page = PhoneAuthPage(driver).wait_loaded()
-            elif SmsCodePage(driver).is_visible(SmsCodePage.HEADER, timeout=3):
+            elif screen == MobileScreen.SMS_CODE:
                 print("\nℹ️ Продолжаем авторизацию с экрана ввода SMS-кода")
                 sms = SmsCodePage(driver).wait_loaded()
                 sms.enter_code()
@@ -251,6 +285,7 @@ def run_full_onboarding_to_main(
         driver: Appium WebDriver
         test_phone: Номер телефона для авторизации (10 цифр)
     """
+    print(f"\n📱 Полный онбординг выполняется под номером: {_format_phone_for_log(test_phone)}")
     preview = PreviewPage(driver).wait_loaded()
     preview.skip_preview()
 

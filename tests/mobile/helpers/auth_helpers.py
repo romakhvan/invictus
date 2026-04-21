@@ -75,7 +75,12 @@ def enter_phone_number(driver: "Remote", wait: WebDriverWait, phone_number: str)
     print(f"✅ Номер телефона введен: {phone_number}")
 
 
-def authorize_user(driver: "Remote", wait: WebDriverWait, phone_number: str = "7001234567") -> None:
+def authorize_user(
+    driver: "Remote",
+    wait: WebDriverWait,
+    phone_number: str = "7001234567",
+    expected_state=None,
+) -> None:
     """
     Выполняет полный флоу авторизации пользователя.
     
@@ -90,7 +95,8 @@ def authorize_user(driver: "Remote", wait: WebDriverWait, phone_number: str = "7
         phone_number: Номер телефона для авторизации (по умолчанию тестовый)
     """
     print("\n--- АВТОРИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ ---")
-    run_auth_to_home(driver, phone_number)
+    print(f"📱 Номер телефона для авторизации: {phone_number}")
+    run_auth_to_home(driver, phone_number, expected_state=expected_state)
     print("✅ Авторизация завершена\n")
     return
     

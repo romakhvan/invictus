@@ -5,25 +5,44 @@ Page Object: Главный экран приложения (оболочка).
 Используйте get_current_home_state() и get_content() для работы с нужным вариантом.
 """
 
-from appium.webdriver import Remote
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.support import expected_conditions as EC
+import time
 
+from appium.webdriver import Remote
+
+from src.config.app_config import IMPLICIT_WAIT
 from src.pages.mobile.shell.base_shell_page import BaseShellPage
 from src.pages.mobile.home.home_state import HomeState
 from src.pages.mobile.home.content import (
     HomeNewUserContent,
+    HomeRabbitHoleContent,
     HomeSubscribedContent,
     HomeMemberContent,
 )
 
 # Порядок проверки состояний и соответствующие классы контента.
 _STATE_DETECTORS = [
+    (HomeState.RABBIT_HOLE, HomeRabbitHoleContent),
     (HomeState.NEW_USER, HomeNewUserContent),
     (HomeState.SUBSCRIBED, HomeSubscribedContent),
     (HomeState.MEMBER, HomeMemberContent),
 ]
-_DETECT_TIMEOUT = 3
+_WAIT_LOADED_TIMEOUT = 20
+_STATE_SCAN_INTERVAL = 0.2
+
+
+def _detect_locators(content_cls):
+    return getattr(content_cls, "DETECT_LOCATORS", (content_cls.DETECT_LOCATOR,))
+
+
+def _has_visible_element(driver: Remote, locator) -> bool:
+    by, value = locator
+    for element in driver.find_elements(by, value):
+        try:
+            if element.is_displayed():
+                return True
+        except Exception:
+            continue
+    return False
 
 
 class HomePage(BaseShellPage):
@@ -54,15 +73,17 @@ class HomePage(BaseShellPage):
         Returns:
             HomeState: NEW_USER, SUBSCRIBED, MEMBER или UNKNOWN.
         """
-        for state, content_cls in _STATE_DETECTORS:
-            try:
-                self._wait(_DETECT_TIMEOUT).until(
-                    EC.visibility_of_element_located(content_cls.DETECT_LOCATOR)
-                )
-                return state
-            except TimeoutException:
-                continue
-        return HomeState.UNKNOWN
+        try:
+            self.driver.implicitly_wait(0)
+            for state, content_cls in _STATE_DETECTORS:
+                if any(
+                    _has_visible_element(self.driver, locator)
+                    for locator in _detect_locators(content_cls)
+                ):
+                    return state
+            return HomeState.UNKNOWN
+        finally:
+            self.driver.implicitly_wait(IMPLICIT_WAIT)
 
     def get_content(self):
         """
@@ -88,5 +109,10 @@ class HomePage(BaseShellPage):
         """Ждёт загрузки главного экрана (любого из известных состояний) и возвращает self."""
         if self.page_title:
             self.print_page_header(self.page_title)
+        deadline = time.monotonic() + _WAIT_LOADED_TIMEOUT
+        while self.get_current_home_state() == HomeState.UNKNOWN:
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(_STATE_SCAN_INTERVAL)
         self.assert_ui()
         return self

@@ -1,14 +1,13 @@
-"""
-Состояния главного экрана в зависимости от типа пользователя.
-"""
+"""Home screen states by user/content type."""
 
 from enum import Enum
 
 
 class HomeState(Enum):
-    """Тип контента на главном экране после входа."""
+    """Type of content shown on the home screen after sign-in."""
 
-    NEW_USER = "new_user"  # приглашение заполнить профиль / онбординг
-    SUBSCRIBED = "subscribed"  # клиент с подпиской
-    MEMBER = "member"  # клиент с абонементом
-    UNKNOWN = "unknown"  # не удалось определить
+    RABBIT_HOLE = "rabbit_hole"
+    NEW_USER = "new_user"
+    SUBSCRIBED = "subscribed"
+    MEMBER = "member"
+    UNKNOWN = "unknown"

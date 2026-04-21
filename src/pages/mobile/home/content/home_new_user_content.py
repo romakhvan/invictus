@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from appium.webdriver import Remote
@@ -20,14 +21,17 @@ class HomeNewUserContent(BaseContentBlock):
     page_title = "Home (New User)"  # для контекста в сообщениях об ошибках
 
     # Маркер состояния: уникален для главной нового юзера.
-    DETECT_LOCATOR = (AppiumBy.XPATH, '//android.widget.TextView[@text="Нет абонемента"]')
+    DETECT_LOCATOR = (
+        AppiumBy.XPATH,
+        '//android.widget.TextView[contains(@text, "10 ДНЕЙ") and contains(@text, "КОМБО-ТРЕНИРОВКИ") and contains(@text, "2 990")]',
+    )
 
     # Ключевые элементы экрана (включая промо Rabbit Hole)
     NO_SUBSCRIPTION_LABEL = (AppiumBy.XPATH, '//android.widget.TextView[@text="Нет абонемента"]')
     WANT_BONUSES_BTN = (AppiumBy.XPATH, '//android.widget.TextView[@text="Хочу бонусы!"]')
     # Кликабельный контейнер оффера «10 ДНЕЙ...» с content-desc "Расскажите подробнее!"
     TELL_MORE_ENTRYPOINT = (AppiumBy.ACCESSIBILITY_ID, "Расскажите подробнее!")
-    OFFER_TITLE = (AppiumBy.XPATH, '//android.widget.TextView[contains(@text, "10 ДНЕЙ") and contains(@text, "КОМБО-ТРЕНИРОВКИ")]')
+    OFFER_TITLE = DETECT_LOCATOR
     # Кнопка в оверлее Rabbit Hole (по частичному тексту «Купить», без привязки к цене)
     RABBIT_HOLE_BUY_BTN = (AppiumBy.XPATH, '//*[contains(@content-desc, "Купить за")]')
     PROGRESS_LABEL = (AppiumBy.XPATH, '//android.widget.TextView[@text="Весь ваш прогресс — в приложении"]')
@@ -53,12 +57,55 @@ class HomeNewUserContent(BaseContentBlock):
 
     def assert_ui(self) -> None:
         """Проверяет, что отображается контент для нового пользователя."""
-        self.wait_visible(self.DETECT_LOCATOR, "Контент 'новый пользователь' не найден (нет текста 'Нет абонемента')")
+        self.wait_visible(self.DETECT_LOCATOR, "Контент 'новый пользователь' не найден (нет оффера '10 ДНЕЙ')")
 
     def click_tell_more(self) -> None:
         """Нажать «Расскажите подробнее!» (переход к деталям оффера/онбордингу)."""
         # Жмём по кликабельному контейнеру (ViewGroup) с content-desc, чтобы повторить реальное поведение.
         self.click(self.TELL_MORE_ENTRYPOINT)
+
+    @staticmethod
+    def _extract_price_text(raw_text: str) -> str:
+        """Извлекает цену вида '2 990 ₸' из текста оффера или кнопки."""
+        normalized = " ".join((raw_text or "").split())
+        match = re.search(r"(\d[\d ]*\d\s*₸)", normalized)
+        if not match:
+            raise AssertionError(f"Не удалось извлечь цену из текста: '{raw_text}'")
+        return " ".join(match.group(1).split())
+
+    def get_offer_price_text(self) -> str:
+        """Возвращает цену из заголовка Rabbit Hole оффера."""
+        offer_text = self.get_text(self.OFFER_TITLE)
+        return self._extract_price_text(offer_text)
+
+    def get_buy_button_price_text(self) -> str:
+        """Возвращает цену из кнопки покупки Rabbit Hole."""
+        button = self.find_element(self.RABBIT_HOLE_BUY_BTN)
+        raw_text = ""
+        try:
+            raw_text = (button.get_attribute("content-desc") or "").strip()
+        except Exception:
+            raw_text = ""
+        if not raw_text:
+            raw_text = (getattr(button, "text", "") or "").strip()
+        return self._extract_price_text(raw_text)
+
+    def assert_rabbit_hole_price_consistency(self) -> str:
+        """
+        Проверяет, что цена в заголовке оффера и в кнопке покупки совпадает.
+
+        Returns:
+            str: согласованная цена для дальнейших шагов сценария.
+        """
+        offer_price = self.get_offer_price_text()
+        button_price = self.get_buy_button_price_text()
+        if offer_price != button_price:
+            raise AssertionError(
+                "Цена в Rabbit Hole оффере не совпадает с ценой на кнопке покупки: "
+                f"оффер='{offer_price}', кнопка='{button_price}'"
+            )
+        print(f"✅ Цена Rabbit Hole согласована: {offer_price}")
+        return offer_price
 
     def open_clubs(self):
         """Открыть экран «Клубы» с главной. Возвращает ClubsPage."""
