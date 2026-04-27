@@ -94,7 +94,7 @@ def verify_all_elements(self) -> bool:
 
 | Page Object | Файл | Статус |
 |---|---|---|
-| `StatsPage` | `src/pages/mobile/stats/stats_page.py` | ❌ нет тестов |
+| `StatsPage` | `src/pages/mobile/stats/stats_page.py` | ✅ `tests/mobile/stats/test_stats_modes.py` |
 | `HomeSubscribedContent` | `src/pages/mobile/home/content/home_subscribed_content.py` | ❌ нет тестов |
 | `HomeMemberContent` | `src/pages/mobile/home/content/home_member_content.py` | ❌ нет тестов |
 | `CitySelectorPage` | `src/pages/mobile/common/city_selector_page.py` | ❌ нет тестов |
@@ -187,7 +187,7 @@ def potential_user_on_main_screen(mobile_driver, db):
 
 ### Sprint 2 — покрытие и стабильность
 - [ ] Добавить `hide_keyboard()` в `MobileInteractionMixin`
-- [ ] Создать тесты для `StatsPage` и `ProfilePage`
+- [ ] Создать тесты для `ProfilePage`
 - [ ] Переписать `test_bottom_navigation.py` через `BottomNav` Page Object
 - [ ] Заменить хрупкие XPath и координаты на нормальные локаторы
 

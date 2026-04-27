@@ -8,6 +8,7 @@ Page Object: Главный экран приложения (оболочка).
 import time
 
 from appium.webdriver import Remote
+from appium.webdriver.common.appiumby import AppiumBy
 
 from src.config.app_config import IMPLICIT_WAIT
 from src.pages.mobile.shell.base_shell_page import BaseShellPage
@@ -26,8 +27,25 @@ _STATE_DETECTORS = [
     (HomeState.SUBSCRIBED, HomeSubscribedContent),
     (HomeState.MEMBER, HomeMemberContent),
 ]
-_WAIT_LOADED_TIMEOUT = 20
+_WAIT_LOADED_TIMEOUT = 10
 _STATE_SCAN_INTERVAL = 0.2
+_NOTIFICATION_PERMISSION_ALLOW = (AppiumBy.ID, "com.android.permissioncontroller:id/permission_allow_button")
+
+
+def _dismiss_notification_permission_if_present(driver: Remote) -> bool:
+    """Закрывает системный диалог разрешения уведомлений, если он открыт."""
+    try:
+        driver.implicitly_wait(0)
+        for el in driver.find_elements(*_NOTIFICATION_PERMISSION_ALLOW):
+            if el.is_displayed():
+                el.click()
+                print("ℹ️ Закрыт диалог разрешения уведомлений")
+                return True
+        return False
+    except Exception:
+        return False
+    finally:
+        driver.implicitly_wait(IMPLICIT_WAIT)
 
 
 def _detect_locators(content_cls):
@@ -113,6 +131,7 @@ class HomePage(BaseShellPage):
         while self.get_current_home_state() == HomeState.UNKNOWN:
             if time.monotonic() >= deadline:
                 break
+            _dismiss_notification_permission_if_present(self.driver)
             time.sleep(_STATE_SCAN_INTERVAL)
         self.assert_ui()
         return self

@@ -9,7 +9,7 @@
 #
 # PYTEST_ARGS: -q --tb=no --no-header
 # PERIOD_DAYS: 7
-# SINGLE_TEST: tests\backend\payments\test_webkassa_monitoring.py
+# SINGLE_TEST: None
 
 
 # --- Payments / Monitoring ---

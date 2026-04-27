@@ -87,6 +87,67 @@ def get_latest_history_counts(db, usp_ids: list[Any]) -> dict[Any, Any]:
     }
 
 
+def get_manual_count_update_infos(db, usp_ids: list[Any]) -> dict[Any, dict[str, Any]]:
+    """Возвращает последнюю ручную правку count по USP."""
+    if not usp_ids:
+        return {}
+
+    histories_col = get_collection(db, "userserviceproductshistories")
+    return {
+        document["_id"]: {
+            "history_id": document["lastRecord"].get("_id"),
+            "changed_at": document["lastRecord"].get("created_at", "N/A"),
+            "change": _format_count_change(document["lastRecord"].get("changes", [])),
+        }
+        for document in histories_col.aggregate(
+            [
+                {
+                    "$match": {
+                        "userServiceProduct": {"$in": usp_ids},
+                        "type": "UPDATE",
+                        "changes.field": "count",
+                    }
+                },
+                {"$sort": {"created_at": -1}},
+                {
+                    "$group": {
+                        "_id": "$userServiceProduct",
+                        "lastRecord": {"$first": "$$ROOT"},
+                    }
+                },
+            ]
+        )
+    }
+
+
+def _format_count_change(changes: list[dict[str, Any]]) -> str:
+    for change in changes:
+        if change.get("field") == "count":
+            return f"{change.get('from', 'N/A')} -> {change.get('to', 'N/A')}"
+    return "N/A"
+
+
+def get_service_product_infos(db, service_product_ids: list[Any]) -> dict[Any, dict[str, Any]]:
+    """Возвращает поля serviceproducts для отображения в отчёте."""
+    if not service_product_ids:
+        return {}
+
+    serviceproducts_col = get_collection(db, "serviceproducts")
+    return {
+        document["_id"]: {
+            "title": document.get("title", "N/A"),
+            "type": document.get("type", "N/A"),
+            "trainingType": document.get("trainingType", "N/A"),
+        }
+        for document in serviceproducts_col.aggregate(
+            [
+                {"$match": {"_id": {"$in": service_product_ids}}},
+                {"$project": {"_id": 1, "title": 1, "type": 1, "trainingType": 1}},
+            ]
+        )
+    }
+
+
 def get_training_sessions_counts(db, usp_ids: list[Any]) -> dict[Any, int]:
     """Возвращает количество training sessions по USP."""
     if not usp_ids:

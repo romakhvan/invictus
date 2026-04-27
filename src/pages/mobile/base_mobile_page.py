@@ -31,7 +31,7 @@ class BaseMobilePage(BasePage, MobileInteractionMixin):
         """
         super().__init__(driver=driver)
         self.driver: Remote = driver
-        self.wait = WebDriverWait(driver, 20)
+        self.wait = WebDriverWait(driver, 10)
 
     @staticmethod
     def print_page_header(page_title: str) -> None:

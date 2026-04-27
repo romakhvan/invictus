@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from src.pages.mobile.profile.profile_page import ProfilePage
 
 
-def assert_profile_matches_potential_user(
+def assert_profile_matches_test_user(
     db: Any,
     profile_page: "ProfilePage",
     context=None,
@@ -41,3 +41,12 @@ def assert_profile_matches_potential_user(
         user_info["firstName"],
         user_info["phone_display"],
     )
+
+
+def assert_profile_matches_potential_user(
+    db: Any,
+    profile_page: "ProfilePage",
+    context=None,
+) -> None:
+    """Compatibility wrapper for existing potential-user checks."""
+    assert_profile_matches_test_user(db, profile_page, context=context)

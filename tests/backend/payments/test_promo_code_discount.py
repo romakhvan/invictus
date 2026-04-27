@@ -13,7 +13,7 @@ from src.services.backend_checks.payments_checks_service import (
     run_promo_code_discount_check,
 )
 from src.services.reporting.payments_text_reports import (
-    build_promo_code_discount_report,
+    build_promo_code_discount_reports,
 )
 
 
@@ -31,33 +31,55 @@ def test_promo_code_discount_correctness(db, period_days):
     C — скидка была активна в момент транзакции (startDate <= created_at <= endDate)
     D — для подписочных транзакций: discountedPrice совпадает с расчётным значением
     """
-    with allure.step(f"Проверить транзакции с промокодом за {period_days} дней"):
+    with allure.step(f"Проверить транзакции с промокодом за последние {period_days} дней"):
         result = run_promo_code_discount_check(db=db, period_days=period_days)
 
     if result.transactions_count == 0:
         pytest.skip(f"Нет транзакций с промокодом за последние {period_days} дней")
 
-    allure.dynamic.parameter("Транзакций с промокодом", result.transactions_count)
+    allure.dynamic.parameter("Обработано транзакций с промокодом", result.transactions_count)
     allure.dynamic.parameter("Уникальных промокодов", result.unique_discount_count)
-    allure.dynamic.parameter("Нарушений найдено", len(result.violations))
+    allure.dynamic.parameter("Нарушений", len(result.violations))
 
-    report = build_promo_code_discount_report(result)
+    reports = build_promo_code_discount_reports(result)
 
-    if not result.violations:
+    print("\n=== ИТОГ ПРОВЕРКИ ПРОМОКОДОВ ===\n" + reports["summary_text"])
+    allure.attach(
+        reports["summary_text"],
+        name="Итог проверки промокодов",
+        attachment_type=allure.attachment_type.TEXT,
+    )
+
+    if result.violations:
+        print("\n=== НАРУШЕНИЯ ПРОМОКОДОВ ===\n" + reports["violations_text"])
         allure.attach(
-            report,
-            name="Результат",
+            reports["violations_text"],
+            name="Нарушения промокодов",
             attachment_type=allure.attachment_type.TEXT,
         )
-        return
+        allure.attach(
+            reports["violations_html"],
+            name="Нарушения промокодов (HTML)",
+            attachment_type=allure.attachment_type.HTML,
+        )
+        if reports["expected_vs_actual_text"]:
+            allure.attach(
+                reports["expected_vs_actual_text"],
+                name="Expected vs Actual",
+                attachment_type=allure.attachment_type.TEXT,
+            )
 
-    with allure.step(f"Сформировать отчёт о {len(result.violations)} нарушениях"):
-        print("\n" + report)
-        allure.attach(report, name="Нарушения промокодов", attachment_type=allure.attachment_type.TEXT)
-
-    first_violation = result.violations[0]
+    latest_violation = (
+        max(result.violations, key=lambda item: item.date or result.since)
+        if result.violations
+        else None
+    )
     assert len(result.violations) == 0, (
-        f"Найдено {len(result.violations)} нарушений промокодов из {result.transactions_count} транзакций. "
-        f"Первое [{first_violation.kind}]: {first_violation.detail}, "
-        f"tx_id={first_violation.tx_id}, дата={first_violation.date}"
+        f"Найдено {len(result.violations)} нарушений промокодов "
+        f"из {result.transactions_count} транзакций за последние {period_days} дней. "
+        f"Последняя ошибочная запись: tx_id={latest_violation.tx_id}, "
+        f"date={latest_violation.date}, kind={latest_violation.kind}, "
+        f"discountId={latest_violation.discount_id}, "
+        f"discountName={latest_violation.discount_name or '—'}, "
+        f"userId={latest_violation.user_id or '—'}, detail={latest_violation.detail}"
     )

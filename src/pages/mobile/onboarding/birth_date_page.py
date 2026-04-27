@@ -4,10 +4,6 @@ Page Object: Экран выбора даты рождения.
 
 from appium.webdriver import Remote
 from appium.webdriver.common.appiumby import AppiumBy
-from selenium.webdriver import ActionChains
-from selenium.webdriver.common.actions import interaction
-from selenium.webdriver.common.actions.action_builder import ActionBuilder
-from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
@@ -63,16 +59,7 @@ class BirthDatePage(BaseMobilePage):
             end_x: Конечная координата X
             end_y: Конечная координата Y
         """
-        actions = ActionChains(self.driver)
-        actions.w3c_actions = ActionBuilder(
-            self.driver, 
-            mouse=PointerInput(interaction.POINTER_TOUCH, "touch")
-        )
-        actions.w3c_actions.pointer_action.move_to_location(start_x, start_y)
-        actions.w3c_actions.pointer_action.pointer_down()
-        actions.w3c_actions.pointer_action.move_to_location(end_x, end_y)
-        actions.w3c_actions.pointer_action.release()
-        actions.perform()
+        self.swipe_by_w3c_actions(start_x, start_y, end_x, end_y)
         print(f"✅ Выполнен свайп от ({start_x}, {start_y}) до ({end_x}, {end_y})")
     
     def click_next(self) -> None:

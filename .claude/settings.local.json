@@ -73,7 +73,8 @@
       "Bash(grep -r \"instalmentType\\\\|source\\\\|productType\" C:all_projectsinvictusinvictus/tests/backend --include=*.py)",
       "Bash(find /c/all_projects/invictus/invictus -name *bonus* -o -name *bonuses*)",
       "Bash(find /c/all_projects/invictus/invictus/tests/backend/payments/bonuses -type f -name *.py)",
-      "Bash(grep -E \"\\\\.py$|conftest\")"
+      "Bash(grep -E \"\\\\.py$|conftest\")",
+      "Bash(grep \"\\\\.py$\")"
     ],
     "deny": [
       "mcp__mongo-prod__insert",

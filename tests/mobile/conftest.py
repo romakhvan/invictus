@@ -3,9 +3,11 @@
 Mobile тесты используют STAGE окружение.
 """
 
+import os
 import pytest
 import pymongo
 import time
+from contextlib import contextmanager
 
 from src.config.db_config import MONGO_URI_STAGE, DB_NAME
 from src.repositories.mobile_test_users_repository import (
@@ -14,11 +16,36 @@ from src.repositories.mobile_test_users_repository import (
 )
 from tests.mobile.helpers.session_helpers import (
     ensure_coach_user_on_home_screen,
+    ensure_test_user_session,
     ensure_member_user_on_home_screen,
     ensure_new_user_on_home_screen,
-    ensure_potential_user_on_main_screen,
+    ensure_rabbit_hole_user_on_home_screen,
     ensure_subscribed_user_on_home_screen,
 )
+
+
+def _mobile_ui_logs_enabled() -> bool:
+    return os.getenv("MOBILE_UI_LOGS") == "1"
+
+
+def _mobile_ui_log(message: str) -> None:
+    if _mobile_ui_logs_enabled():
+        print(f"[mobile-ui] {message}", flush=True)
+
+
+@contextmanager
+def _mobile_ui_timing(step_name: str):
+    if not _mobile_ui_logs_enabled():
+        yield
+        return
+
+    start = time.perf_counter()
+    print(f"[mobile-ui] START {step_name}", flush=True)
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - start
+        print(f"[mobile-ui] DONE {step_name}: {elapsed:.2f}s", flush=True)
 
 
 @pytest.fixture(scope="session")
@@ -28,11 +55,14 @@ def db():
     Используется для всех mobile тестов.
     """
     print("\n🔌 Connecting to MongoDB STAGE...")
-    client = pymongo.MongoClient(MONGO_URI_STAGE)
-    db = client[DB_NAME]
+    with _mobile_ui_timing("create MongoDB STAGE client"):
+        client = pymongo.MongoClient(MONGO_URI_STAGE)
+        db = client[DB_NAME]
+        db.command("ping")
     yield db
     print("\n🧹 Closing Mongo STAGE connection.")
-    client.close()
+    with _mobile_ui_timing("close MongoDB STAGE client"):
+        client.close()
 
 
 # ==================== Автоматический трекинг времени выполнения ====================
@@ -40,7 +70,17 @@ def db():
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     """Сохраняем время начала теста."""
+    _mobile_ui_log(f"PYTEST SETUP START {item.nodeid}")
     item.test_start_time = time.time()
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    """Логируем границу между setup fixtures и телом mobile-теста."""
+    _mobile_ui_log(f"PYTEST CALL START {item.nodeid}")
+    outcome = yield
+    _mobile_ui_log(f"PYTEST CALL DONE {item.nodeid}")
+    return outcome
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -82,35 +122,54 @@ def onboarding_phone_kg(request):
 @pytest.fixture
 def new_user_on_home(mobile_driver, db):
     """Драйвер на главной в состоянии NEW_USER."""
-    ensure_new_user_on_home_screen(mobile_driver, db)
+    with _mobile_ui_timing("fixture new_user_on_home setup"):
+        ensure_new_user_on_home_screen(mobile_driver, db)
+    _mobile_ui_log("READY fixture new_user_on_home")
     yield mobile_driver
 
 
 @pytest.fixture
 def subscribed_user_on_home(mobile_driver, db):
     """Драйвер на главной в состоянии SUBSCRIBED."""
-    ensure_subscribed_user_on_home_screen(mobile_driver, db)
+    with _mobile_ui_timing("fixture subscribed_user_on_home setup"):
+        ensure_subscribed_user_on_home_screen(mobile_driver, db)
+    _mobile_ui_log("READY fixture subscribed_user_on_home")
     yield mobile_driver
 
 
 @pytest.fixture
 def member_user_on_home(mobile_driver, db):
     """Драйвер на главной в состоянии MEMBER."""
-    ensure_member_user_on_home_screen(mobile_driver, db)
+    with _mobile_ui_timing("fixture member_user_on_home setup"):
+        ensure_member_user_on_home_screen(mobile_driver, db)
+    _mobile_ui_log("READY fixture member_user_on_home")
+    yield mobile_driver
+
+
+@pytest.fixture
+def rabbit_hole_user_on_home(mobile_driver, db):
+    """Драйвер на главной в состоянии RABBIT_HOLE."""
+    with _mobile_ui_timing("fixture rabbit_hole_user_on_home setup"):
+        ensure_rabbit_hole_user_on_home_screen(mobile_driver, db)
+    _mobile_ui_log("READY fixture rabbit_hole_user_on_home")
     yield mobile_driver
 
 
 @pytest.fixture
 def coach_user_on_home(mobile_driver, db):
     """Драйвер, авторизованный coach-пользователем. Пока flow может завершиться skip."""
-    ensure_coach_user_on_home_screen(mobile_driver, db)
+    with _mobile_ui_timing("fixture coach_user_on_home setup"):
+        ensure_coach_user_on_home_screen(mobile_driver, db)
+    _mobile_ui_log("READY fixture coach_user_on_home")
     yield mobile_driver
 
 
 @pytest.fixture
-def potential_user_on_main_screen(mobile_driver, db):
+def potential_user_on_main_screen(mobile_driver, db, potential_user_context):
     """Драйвер на главной под пользователем role=potential."""
-    ensure_new_user_on_home_screen(mobile_driver, db)
+    with _mobile_ui_timing("fixture potential_user_on_main_screen setup"):
+        ensure_new_user_on_home_screen(mobile_driver, db, context=potential_user_context)
+    _mobile_ui_log("READY fixture potential_user_on_main_screen")
     yield mobile_driver
 
 
@@ -122,9 +181,18 @@ def potential_user_context(db):
 
 
 @pytest.fixture
-def authorized_potential_user(mobile_driver, db):
+def potential_user_session(mobile_driver, db, potential_user_context):
+    """РђРІС‚РѕСЂРёР·РѕРІР°РЅРЅС‹Р№ potential-РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ РґРѕСЃС‚СѓРїРЅС‹Рј shell/tabbar."""
+    with _mobile_ui_timing("fixture potential_user_session setup"):
+        nav = ensure_test_user_session(mobile_driver, db, potential_user_context)
+    _mobile_ui_log("READY fixture potential_user_session")
+    yield nav
+
+
+@pytest.fixture
+def authorized_potential_user(mobile_driver, db, potential_user_context):
     """Авторизованный potential-пользователь на главной (алиас для auth-тестов)."""
-    ensure_new_user_on_home_screen(mobile_driver, db)
+    ensure_test_user_session(mobile_driver, db, potential_user_context)
     yield mobile_driver
 
 

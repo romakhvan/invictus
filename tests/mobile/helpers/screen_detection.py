@@ -12,6 +12,7 @@ from src.pages.mobile.home.content import (
     HomeRabbitHoleContent,
     HomeSubscribedContent,
 )
+from src.pages.mobile.shell.bottom_nav import BottomNav
 
 if TYPE_CHECKING:
     from appium.webdriver import Remote
@@ -55,6 +56,38 @@ def home_state_for_screen(screen: MobileScreen) -> HomeState | None:
     return _HOME_SCREEN_STATES.get(screen)
 
 
+def _has_visible_element(driver: "Remote", locator) -> bool:
+    by, value = locator
+    elements = driver.find_elements(by, value)
+    for element in elements:
+        try:
+            if element.is_displayed():
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def is_authorized_shell_visible(driver: "Remote") -> bool:
+    """
+    Return whether the authorized mobile shell tabbar is visible.
+
+    This detects the app mode, not a specific Home state. All four text tabs
+    must be visible so partial auth/navigation states are not treated as ready.
+    """
+    tab_locators = (
+        BottomNav.TAB_MAIN,
+        BottomNav.TAB_BOOKINGS,
+        BottomNav.TAB_STATS,
+        BottomNav.TAB_PROFILE,
+    )
+    try:
+        driver.implicitly_wait(0)
+        return all(_has_visible_element(driver, locator) for locator in tab_locators)
+    finally:
+        driver.implicitly_wait(IMPLICIT_WAIT)
+
+
 def detect_current_screen(driver: "Remote") -> MobileScreen:
     """
     Detect the currently visible high-level mobile screen without long waits.
@@ -65,14 +98,9 @@ def detect_current_screen(driver: "Remote") -> MobileScreen:
     try:
         driver.implicitly_wait(0)
         for screen, locators in _SCREEN_DETECTORS:
-            for by, value in locators:
-                elements = driver.find_elements(by, value)
-                for element in elements:
-                    try:
-                        if element.is_displayed():
-                            return screen
-                    except Exception:
-                        continue
+            for locator in locators:
+                if _has_visible_element(driver, locator):
+                    return screen
         return MobileScreen.UNKNOWN
     finally:
         driver.implicitly_wait(IMPLICIT_WAIT)

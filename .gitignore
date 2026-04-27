@@ -56,4 +56,5 @@ tmp/
 
 # Allure reports
 allure-results/
+allure-results_*/
 allure-report/

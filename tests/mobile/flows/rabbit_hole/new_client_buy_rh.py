@@ -160,7 +160,7 @@ def test_new_client_buys_rabbit_hole(mobile_driver: "Remote", db):
     print("FLOW-ТЕСТ: Новый клиент покупает Rabbit Hole")
     print("=" * 80)
     
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 10)
     
     try:
         # Проверка запуска приложения
@@ -199,14 +199,14 @@ def test_new_client_buys_rabbit_hole(mobile_driver: "Remote", db):
             content.OFFER_TITLE
         ), "После клика по «Расскажите подробнее!» не открылся оффер Rabbit Hole."
         assert content.is_visible(
-            content.RABBIT_HOLE_BUY_BTN, timeout=15
+            content.RABBIT_HOLE_BUY_BTN, timeout=10
         ), "В оверлее Rabbit Hole не появилась кнопка «Купить»."
         expected_amount = content.assert_rabbit_hole_price_consistency()
         print("✅ Оффер Rabbit Hole открыт по кнопке «Расскажите подробнее!»")
 
         # ШАГ 3: Нажатие на кнопку «Купить за 2 990»
         print("\n--- ШАГ 3: Нажатие на кнопку «Купить за 2 990» ---")
-        content.click(content.RABBIT_HOLE_BUY_BTN, timeout=15)
+        content.click(content.RABBIT_HOLE_BUY_BTN, timeout=10)
         print("✅ Нажата кнопка «Купить за 2 990»")
 
         # ШАГ 4: Открытие экрана выбора города/клуба для покупки тренировок

@@ -1,6 +1,7 @@
 import pytest
 import os
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from dotenv import load_dotenv
 from src.utils.mobile_debug_menu import interactive_debug_menu
@@ -67,6 +68,30 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     """Синхронизирует флаги pytest с runtime-настройками логирования."""
     os.environ["MOBILE_UI_LOGS"] = "1" if config.getoption("--mobile-ui-logs") else "0"
+
+
+def _mobile_ui_logs_enabled() -> bool:
+    return os.getenv("MOBILE_UI_LOGS") == "1"
+
+
+def _mobile_ui_log(message: str) -> None:
+    if _mobile_ui_logs_enabled():
+        print(f"[mobile-ui] {message}", flush=True)
+
+
+@contextmanager
+def _mobile_ui_timing(step_name: str):
+    if not _mobile_ui_logs_enabled():
+        yield
+        return
+
+    start = time.perf_counter()
+    print(f"[mobile-ui] START {step_name}", flush=True)
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - start
+        print(f"[mobile-ui] DONE {step_name}: {elapsed:.2f}s", flush=True)
 
 
 # ==================== Web фикстуры (Playwright) ====================
@@ -694,7 +719,8 @@ def appium_driver(request):
 def mobile_driver(appium_driver):
     """Фикстура для получения Appium WebDriver объекта."""
     driver = appium_driver.get_driver()
-    ensure_mobile_app_in_foreground(driver)
+    with _mobile_ui_timing("ensure mobile app in foreground"):
+        ensure_mobile_app_in_foreground(driver)
     
     # Опциональный программный перезапуск приложения перед каждым тестом.
     # По умолчанию выключен: AppiumDriver.start(...) уже запускает приложение.
@@ -725,7 +751,9 @@ def mobile_driver(appium_driver):
         except Exception as e:
             print(f"⚠️ Не удалось перезапустить приложение: {e}")
     
+    _mobile_ui_log("READY mobile_driver fixture")
     yield driver
+    _mobile_ui_log("TEARDOWN mobile_driver fixture")
 
 
 # ==================== Telegram уведомления ====================

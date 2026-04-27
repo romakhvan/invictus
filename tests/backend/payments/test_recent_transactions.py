@@ -1,145 +1,105 @@
-"""
-Тест для анализа транзакций с 14:55 по местному времени (исключая source='pos') с группировкой по instalmentType.
-"""
-from datetime import datetime, timedelta, timezone
+"""Monitoring report for recent non-POS transactions grouped by instalmentType."""
+
 from collections import defaultdict
+from datetime import datetime, timedelta
+
+from src.repositories.payments.checks_repository import (
+    get_recent_recurrent_success_instalment_stats,
+    get_recent_transaction_fail_examples,
+    get_recent_transaction_instalment_stats,
+)
 
 
-def test_recent_transactions_grouped_by_instalment_type(db):
+FAIL_EXAMPLE_LIMIT = 200
+FAIL_EXAMPLES_PER_TYPE = 5
+
+
+def _instalment_label(value) -> str:
+    return str(value) if value not in (None, "") else "Не указан"
+
+
+def test_recent_transactions_grouped_by_instalment_type(db, period_days):
     """
-    Получает транзакции с 14:55 по местному времени (исключая source='pos') и группирует их по instalmentType.
+    Reports recent non-POS transactions by instalmentType.
+
+    The query intentionally aggregates counts in MongoDB and only fetches a
+    bounded sample of failed documents, because the raw transaction set can be
+    large enough for a full scan to be cancelled by MongoDB.
     """
-    from src.utils.repository_helpers import get_collection
-    
-    col = get_collection(db, "transactions")
-    
-    # Период: фиксированная дата и время 14:55 03.02.2026 по местному времени (UTC+5 для Алматы)
-    # Задаем datetime для 14:55 3 февраля 2026 года и конвертируем в UTC
-    start_time_local = datetime(2026, 2, 3, 14, 55, 0)
-    # Конвертируем в UTC (минус 5 часов для Алматы)
-    start_time_utc = start_time_local - timedelta(hours=5)
-    
-    query = {
-        "created_at": {"$gte": start_time_utc},
-        "$or": [
-            {"source": {"$exists": False}},  # Транзакции без поля source
-            {"source": {"$ne": "pos"}}  # Транзакции, где source != "pos"
-        ]
+    now = datetime.now()
+    since = now - timedelta(days=period_days)
+
+    instalment_stats = get_recent_transaction_instalment_stats(db, since=since)
+    recurrent_stats = {
+        _instalment_label(row.get("_id")): row.get("transactions_count", 0)
+        for row in get_recent_recurrent_success_instalment_stats(db, since=since)
     }
-    
+    fail_examples = get_recent_transaction_fail_examples(
+        db,
+        since=since,
+        limit=FAIL_EXAMPLE_LIMIT,
+    )
+
+    fail_examples_by_type = defaultdict(list)
+    for transaction in fail_examples:
+        fail_examples_by_type[_instalment_label(transaction.get("instalmentType"))].append(
+            transaction
+        )
+
+    total_transactions = sum(row.get("transactions_count", 0) for row in instalment_stats)
+    total_recurrent_success = sum(recurrent_stats.values())
+    total_fail = sum(
+        (row.get("status_counts") or {}).get("fail", 0)
+        for row in instalment_stats
+    )
+
     print(f"\n{'=' * 80}")
-    print(f"📊 ТРАНЗАКЦИИ С 14:55 С ГРУППИРОВКОЙ ПО instalmentType")
+    print("RECENT NON-POS TRANSACTIONS BY instalmentType")
     print(f"{'=' * 80}")
-    current_local = datetime.now()
-    print(f"Период (местное время): с {start_time_local.strftime('%Y-%m-%d %H:%M:%S')} до {current_local.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Период (UTC): с {start_time_utc.strftime('%Y-%m-%d %H:%M:%S')} до {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    transactions = list(col.find(query).sort("created_at", -1))
-    
-    print(f"\n✅ Всего транзакций: {len(transactions)}")
-    
-    if not transactions:
-        print("\n⚠️ Транзакции за указанный период не найдены")
+    print(f"Period: last {period_days} days, since {since:%Y-%m-%d %H:%M:%S}")
+    print(f"Total transactions: {total_transactions}")
+    print(f"Successful recurrent transactions: {total_recurrent_success}")
+    print(f"Failed transactions: {total_fail}")
+
+    if not instalment_stats:
+        print("\nNo transactions found for the selected period.")
+        assert total_transactions >= 0
         return
-    
-    # Группировка по instalmentType
-    grouped = defaultdict(list)
-    
-    for trans in transactions:
-        instalment_type = trans.get("instalmentType", "Не указан")
-        grouped[instalment_type].append(trans)
-    
-    # Вывод статистики по группам
-    print(f"\n{'─' * 80}")
-    print(f"📈 ГРУППИРОВКА ПО instalmentType:")
-    print(f"{'─' * 80}")
-    
-    for instalment_type, trans_list in sorted(grouped.items()):
-        print(f"\n🔹 {instalment_type}: {len(trans_list)} транзакций")
-        
-        # Подсчёт статистики по статусам
-        statuses = defaultdict(int)
-        total_amount = 0
-        
-        for trans in trans_list:
-            status = trans.get("status", "unknown")
-            statuses[status] += 1
-            total_amount += trans.get("price", 0)
-        
-        print(f"   Общая сумма: {total_amount} тенге")
-        print(f"   Статусы:")
-        for status, count in sorted(statuses.items()):
-            print(f"      - {status}: {count}")
-    
-    # Показываем успешные транзакции с productType='recurrent' с группировкой по instalmentType
-    print(f"\n{'─' * 80}")
-    print(f"✅ УСПЕШНЫЕ ТРАНЗАКЦИИ С productType='recurrent' ПО instalmentType:")
-    print(f"{'─' * 80}")
-    
-    # Фильтруем успешные транзакции с productType='recurrent'
-    recurrent_success_transactions = [
-        t for t in transactions 
-        if t.get("status") == "success" and t.get("productType") == "recurrent"
-    ]
-    
-    if not recurrent_success_transactions:
-        print("\n⚠️ Успешных транзакций с productType='recurrent' не найдено")
-    else:
-        # Группируем по instalmentType
-        recurrent_grouped = defaultdict(int)
-        for trans in recurrent_success_transactions:
-            instalment_type = trans.get("instalmentType", "Не указан")
-            recurrent_grouped[instalment_type] += 1
-        
-        print(f"\n📊 Всего успешных recurrent транзакций: {len(recurrent_success_transactions)}")
-        print(f"\n📈 Распределение по instalmentType:")
-        
-        for instalment_type, count in sorted(recurrent_grouped.items()):
-            print(f"   🔹 {instalment_type}: {count} транзакций")
-    
-    # Показываем только FAIL транзакции с группировкой по instalmentType
-    print(f"\n{'─' * 80}")
-    print(f"❌ НЕУСПЕШНЫЕ ТРАНЗАКЦИИ (FAIL) ПО instalmentType:")
-    print(f"{'─' * 80}")
-    
-    # Фильтруем только fail транзакции
-    fail_transactions = [t for t in transactions if t.get("status") == "fail"]
-    
-    if not fail_transactions:
-        print("\n✅ Неуспешных транзакций не найдено")
-    else:
-        # Группируем fail транзакции по instalmentType
-        fail_grouped = defaultdict(list)
-        for trans in fail_transactions:
-            instalment_type = trans.get("instalmentType", "Не указан")
-            fail_grouped[instalment_type].append(trans)
-        
-        print(f"\n📊 Всего неуспешных транзакций: {len(fail_transactions)}")
-        
-        # Выводим по каждому instalmentType
-        for instalment_type, trans_list in sorted(fail_grouped.items()):
-            print(f"\n{'─' * 80}")
-            print(f"🔸 {instalment_type}: {len(trans_list)} неуспешных транзакций")
-            print(f"{'─' * 80}")
-            
-            # Показываем до 5 примеров для каждого типа
-            for idx, trans in enumerate(trans_list[:5], 1):
-                created_at = trans.get("created_at")
-                price = trans.get("price", 0)
-                product_type = trans.get("productType", "unknown")
-                reason = trans.get("reason", "Не указана")
-                
-                print(f"\n   #{idx}")
-                print(f"      Время: {created_at.strftime('%Y-%m-%d %H:%M:%S') if created_at else 'Не указано'}")
-                print(f"      Сумма: {price} тенге")
-                print(f"      Тип продукта: {product_type}")
-                if reason != "Не указана":
-                    print(f"      Причина: {reason}")
-            
-            if len(trans_list) > 5:
-                print(f"\n   ... и ещё {len(trans_list) - 5} транзакций")
-    
+
+    print(f"\n{'-' * 80}")
+    print("GROUPED BY instalmentType")
+    print(f"{'-' * 80}")
+
+    for row in sorted(instalment_stats, key=lambda item: _instalment_label(item.get("_id"))):
+        instalment_type = _instalment_label(row.get("_id"))
+        status_counts = row.get("status_counts") or {}
+        transactions_count = row.get("transactions_count", 0)
+        total_amount = row.get("total_amount", 0)
+
+        print(f"\n{instalment_type}: {transactions_count} transactions")
+        print(f"  Total amount: {total_amount}")
+        print(f"  Successful recurrent: {recurrent_stats.get(instalment_type, 0)}")
+        print("  Statuses:")
+        for status, count in sorted(status_counts.items()):
+            print(f"    - {status}: {count}")
+
+        examples = fail_examples_by_type.get(instalment_type, [])[:FAIL_EXAMPLES_PER_TYPE]
+        if examples:
+            print("  Latest failed examples:")
+            for transaction in examples:
+                created_at = transaction.get("created_at")
+                created_at_text = (
+                    created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if created_at
+                    else "not set"
+                )
+                print(
+                    "    - "
+                    f"{created_at_text} | id={transaction.get('_id')} | "
+                    f"price={transaction.get('price', 0)} | "
+                    f"productType={transaction.get('productType', 'unknown')} | "
+                    f"reason={transaction.get('reason', 'not set')}"
+                )
+
     print(f"\n{'=' * 80}")
-    
-    # Проверка
-    assert len(transactions) >= 0, "Количество транзакций не может быть отрицательным"
+    assert total_transactions >= 0, "Transaction count cannot be negative"

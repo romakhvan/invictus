@@ -331,34 +331,100 @@ def build_subscription_bonus_accrual_report(
     return "\n".join(lines)
 
 
-def build_visit_bonus_accrual_report(result: VisitBonusAccrualCheckResult) -> str:
-    """Builds a text report for VISIT bonus accrual consistency checks."""
-    lines = [
+def _visit_bonus_dt(value) -> str:
+    return value.strftime("%Y-%m-%d %H:%M:%S") if value else "—"
+
+
+def build_visit_bonus_accrual_reports(
+    result: VisitBonusAccrualCheckResult,
+    *,
+    max_rows_per_group: int = 20,
+) -> dict[str, str]:
+    """Builds Allure attachments for VISIT bonus accrual consistency checks."""
+    duplicate_count = len(result.duplicate_days)
+    missing_count = len(result.missing_visit_bonuses)
+    total_violations = duplicate_count + missing_count
+
+    summary_lines = [
+        "Итог проверки VISIT-бонусов",
+        f"Период: последние {result.period_days} дней",
         f"Проверено VISIT-бонусов: {result.bonus_records_count}",
-        f"Найдено валидных входов: {result.access_entries_count}",
-        f"Дублей бонусов за день: {len(result.duplicate_days)}",
-        f"Бонусов без посещения: {len(result.missing_visit_bonuses)}",
+        f"Валидных входов найдено: {result.access_entries_count}",
+        f"Дублей бонусов за день: {duplicate_count}",
+        f"Бонусов без посещения: {missing_count}",
+        f"Нарушений: {total_violations}",
     ]
 
-    if not result.duplicate_days and not result.missing_visit_bonuses:
-        return "\n".join(lines)
+    if result.missing_visit_bonuses:
+        latest_missing = max(
+            result.missing_visit_bonuses,
+            key=lambda item: item.time or result.since,
+        )
+        summary_lines.append(
+            "Последняя ошибочная запись: "
+            f"{_visit_bonus_dt(latest_missing.time)} | bonus_id={latest_missing.bonus_id} | "
+            f"user={latest_missing.user_id} | amount={latest_missing.amount} | "
+            "expected=валидный вход accesscontrols | actual=вход не найден"
+        )
+    elif result.duplicate_days:
+        latest_duplicate = max(result.duplicate_days, key=lambda item: str(item.date))
+        summary_lines.append(
+            "Последняя ошибочная запись: "
+            f"{latest_duplicate.date} | user={latest_duplicate.user_id} | "
+            f"bonus_ids={', '.join(latest_duplicate.bonus_ids)} | "
+            "expected=<=1 VISIT-бонус за день | "
+            f"actual={len(latest_duplicate.bonus_ids)} VISIT-бонусов"
+        )
+
+    violations_lines = []
+    expected_vs_actual_lines = []
 
     if result.duplicate_days:
-        lines += ["", f"Дубли VISIT-бонусов за один день: {len(result.duplicate_days)}"]
-        for violation in result.duplicate_days[:20]:
-            lines.append(
-                f"  user={violation.user_id} date={violation.date} bonus_ids={violation.bonus_ids}"
+        violations_lines += ["Дубли VISIT-бонусов за день ({})".format(duplicate_count)]
+        for violation in result.duplicate_days[:max_rows_per_group]:
+            line = (
+                f"- {violation.date} | user={violation.user_id} | "
+                f"bonus_ids={', '.join(violation.bonus_ids)} | "
+                "expected=<=1 VISIT-бонус за день | "
+                f"actual={len(violation.bonus_ids)} VISIT-бонусов"
             )
+            violations_lines.append(line)
+            expected_vs_actual_lines.append(line)
+        if duplicate_count > max_rows_per_group:
+            violations_lines.append(f"... и ещё {duplicate_count - max_rows_per_group}")
+        violations_lines.append("")
 
     if result.missing_visit_bonuses:
-        lines += ["", f"VISIT-бонусы без посещения: {len(result.missing_visit_bonuses)}"]
-        for violation in result.missing_visit_bonuses[:20]:
-            lines.append(
-                f"  bonus_id={violation.bonus_id} user={violation.user_id} "
-                f"amount={violation.amount} time={violation.time}"
+        violations_lines += [f"VISIT-бонусы без посещения ({missing_count})"]
+        for violation in result.missing_visit_bonuses[:max_rows_per_group]:
+            line = (
+                f"- {_visit_bonus_dt(violation.time)} | bonus_id={violation.bonus_id} | "
+                f"user={violation.user_id} | amount={violation.amount} | "
+                "expected=валидный вход accesscontrols | actual=вход не найден"
             )
+            violations_lines.append(line)
+            expected_vs_actual_lines.append(line)
+        if missing_count > max_rows_per_group:
+            violations_lines.append(f"... и ещё {missing_count - max_rows_per_group}")
 
-    return "\n".join(lines)
+    return {
+        "summary_text": "\n".join(summary_lines),
+        "violations_text": "\n".join(violations_lines).strip(),
+        "expected_vs_actual_text": "\n".join(expected_vs_actual_lines),
+    }
+
+
+def build_visit_bonus_accrual_report(result: VisitBonusAccrualCheckResult) -> str:
+    """Builds a compatible text report for VISIT bonus accrual consistency checks."""
+    reports = build_visit_bonus_accrual_reports(result)
+    if not reports["violations_text"]:
+        return reports["summary_text"]
+    return "\n\n".join(
+        [
+            reports["summary_text"],
+            reports["violations_text"],
+        ]
+    )
 
 
 def build_visit_bonus_coverage_report(
@@ -379,19 +445,132 @@ def build_visit_bonus_coverage_report(
 
     by_user: dict[str, list[Any]] = defaultdict(list)
     for violation in result.violations:
-        by_user[violation.user_id].append(violation.date)
+        by_user[violation.user_id].append(violation)
 
     lines = [
         f"Дней посещений без VISIT-бонуса: {len(result.violations)}",
         f"Затронуто пользователей: {len(by_user)}",
         "",
     ]
-    for user_id, dates in sorted(by_user.items(), key=lambda item: -len(item[1]))[:max_users]:
-        dates_str = ", ".join(str(date) for date in sorted(dates))
-        lines.append(f"  user={user_id} пропущено дней: {len(dates)}")
-        lines.append(f"    {dates_str}")
+    for user_id, violations in sorted(by_user.items(), key=lambda item: -len(item[1]))[:max_users]:
+        lines.append(f"  user={user_id} пропущено входов: {len(violations)}")
+        for violation in sorted(violations, key=lambda item: (str(item.date), item.accesscontrol_id)):
+            lines.append(
+                f"    {violation.date} | accesscontrolId={violation.accesscontrol_id} | "
+                f"user={violation.user_id} | expected=VISIT-бонус | actual=нет бонуса"
+            )
 
     return "\n".join(lines)
+
+
+def _promo_date_str(value) -> str:
+    return value.strftime("%Y-%m-%d %H:%M:%S") if value else "—"
+
+
+def build_promo_code_discount_reports(
+    result: PromoCodeDiscountCheckResult,
+    *,
+    max_rows_per_kind: int = 10,
+) -> dict[str, str]:
+    """Формирует набор Allure-вложений по нарушениям применения промокодов."""
+    violations_by_kind: dict[str, list] = defaultdict(list)
+    for violation in result.violations:
+        violations_by_kind[violation.kind].append(violation)
+
+    latest_violation = (
+        max(result.violations, key=lambda item: item.date or result.since)
+        if result.violations
+        else None
+    )
+    summary_pairs = [
+        ("Период", f"последние {result.period_days} дней"),
+        ("Проверено транзакций с paidFor.discountId", result.transactions_count),
+        ("Промокодов найдено в discounts", result.unique_discount_count),
+        ("Нарушений", len(result.violations)),
+        ("Доля нарушений", _pct(len(result.violations), result.transactions_count)),
+    ]
+    summary_lines = ["Итог проверки промокодов"]
+    summary_lines.extend(f"{key}: {value}" for key, value in summary_pairs)
+    if latest_violation:
+        summary_lines.append(
+            "Последняя ошибочная запись: "
+            f"{_promo_date_str(latest_violation.date)} | tx_id={latest_violation.tx_id} | "
+            f"kind={latest_violation.kind} | userId={latest_violation.user_id or '—'} | "
+            f"discountId={latest_violation.discount_id} | "
+            f"discountName={latest_violation.discount_name or '—'} | {latest_violation.detail}"
+        )
+    summary_text = "\n".join(summary_lines)
+    summary_html = HTML_CSS + "<h2>Итог проверки промокодов</h2>" + html_kv(summary_pairs)
+
+    violations_text = ""
+    violations_html = ""
+    if result.violations:
+        lines = [
+            f"Нарушений промокодов: {len(result.violations)} из {result.transactions_count} транзакций",
+            "",
+        ]
+        html_blocks = [HTML_CSS, "<h2>Promo Code Violations</h2>"]
+        for kind in ("A", "B", "C", "D"):
+            kind_violations = sorted(
+                violations_by_kind.get(kind, []),
+                key=lambda item: item.date or result.since,
+                reverse=True,
+            )
+            if not kind_violations:
+                continue
+            lines.append(f"[{kind}] {kind_violations[0].label} ({len(kind_violations)})")
+            for violation in kind_violations[:max_rows_per_kind]:
+                lines.append(
+                    f"- {_promo_date_str(violation.date)} | tx_id={violation.tx_id} | "
+                    f"userId={violation.user_id or '—'} | discountId={violation.discount_id} | "
+                    f"discountName={violation.discount_name or '—'} | {violation.detail}"
+                )
+            if len(kind_violations) > max_rows_per_kind:
+                lines.append(f"... и ещё {len(kind_violations) - max_rows_per_kind}")
+            lines.append("")
+
+            html_rows = [
+                (
+                    _promo_date_str(violation.date),
+                    violation.tx_id,
+                    violation.user_id or "—",
+                    violation.discount_id,
+                    violation.discount_name or "—",
+                    violation.detail,
+                )
+                for violation in kind_violations[:max_rows_per_kind]
+            ]
+            html_blocks.append(
+                f"<h3>[{kind}] {kind_violations[0].label} ({len(kind_violations)})</h3>"
+                + html_table(
+                    ["Date", "tx_id", "userId", "discountId", "discountName", "Detail"],
+                    html_rows,
+                )
+            )
+
+        violations_text = "\n".join(lines).rstrip()
+        violations_html = "".join(html_blocks)
+
+    price_violations = sorted(
+        violations_by_kind.get("D", []),
+        key=lambda item: item.date or result.since,
+        reverse=True,
+    )
+    expected_vs_actual_text = ""
+    if price_violations:
+        expected_vs_actual_text = "\n".join(
+            f"- {_promo_date_str(violation.date)} | tx_id={violation.tx_id} | "
+            f"discountId={violation.discount_id} | {violation.detail}"
+            for violation in price_violations[:max_rows_per_kind]
+        )
+
+    return {
+        "summary_text": summary_text,
+        "summary_html": summary_html,
+        "violations_text": violations_text,
+        "violations_html": violations_html,
+        "expected_vs_actual_text": expected_vs_actual_text,
+    }
 
 
 def build_promo_code_discount_report(
@@ -399,31 +578,15 @@ def build_promo_code_discount_report(
     *,
     max_rows_per_kind: int = 10,
 ) -> str:
-    """Формирует текстовый отчёт по нарушениям применения промокодов."""
+    """Формирует совместимый текстовый отчёт по нарушениям применения промокодов."""
+    reports = build_promo_code_discount_reports(result, max_rows_per_kind=max_rows_per_kind)
     if not result.violations:
-        return f"Все {result.transactions_count} транзакций прошли проверку промокода."
+        return reports["summary_text"]
 
-    violations_by_kind: dict[str, list] = {}
-    for violation in result.violations:
-        violations_by_kind.setdefault(violation.kind, []).append(violation)
-
-    lines = [
-        f"Нарушений промокодов: {len(result.violations)} из {result.transactions_count} транзакций",
-        "",
-    ]
-    for kind in ("A", "B", "C", "D"):
-        kind_violations = violations_by_kind.get(kind, [])
-        if not kind_violations:
-            continue
-        lines.append(f"[{kind}] {kind_violations[0].label} ({len(kind_violations)})")
-        for violation in kind_violations[:max_rows_per_kind]:
-            date_str = violation.date.strftime("%Y-%m-%d %H:%M:%S") if violation.date else "—"
-            lines.append(f"  - {date_str} | {violation.tx_id} | {violation.detail}")
-        if len(kind_violations) > max_rows_per_kind:
-            lines.append(f"  ... и ещё {len(kind_violations) - max_rows_per_kind}")
-        lines.append("")
-
-    return "\n".join(lines)
+    sections = [reports["summary_text"]]
+    if reports["violations_text"]:
+        sections += ["", reports["violations_text"]]
+    return "\n".join(sections)
 
 
 def build_internal_error_report(

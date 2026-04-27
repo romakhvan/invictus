@@ -44,7 +44,7 @@ class SuccessPage(BaseMobilePage):
         )
         print("✅ Success-экран открыт")
 
-    def assert_reward_text_visible(self, reward_text: str, timeout: int = 20) -> None:
+    def assert_reward_text_visible(self, reward_text: str, timeout: int = 10) -> None:
         """Assert the operation-specific success details are visible."""
         self.wait_visible(
             self.reward_text_locator(reward_text),

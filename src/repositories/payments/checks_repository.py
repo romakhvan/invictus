@@ -278,6 +278,21 @@ def get_visit_bonus_user_ids(
     )[:limit]
 
 
+def get_visits_map_by_ids(db, visit_ids: list[Any]) -> dict[str, dict[str, Any]]:
+    """Returns visit documents by id with fields required for bonus eligibility checks."""
+    if not visit_ids:
+        return {}
+
+    visits_col = get_collection(db, "visits")
+    return {
+        str(visit["_id"]): visit
+        for visit in visits_col.find(
+            {"_id": {"$in": visit_ids}},
+            {"_id": 1, "source": 1, "type": 1},
+        )
+    }
+
+
 def get_transactions_with_promo_code(db, since: datetime) -> list[dict[str, Any]]:
     """Возвращает успешные транзакции с применённым промокодом за период."""
     transactions_col = get_collection(db, "transactions")
@@ -336,6 +351,102 @@ def get_internal_error_transactions(db, since: datetime) -> list[dict[str, Any]]
                 "reason": 1,
             },
         ).sort("created_at", -1)
+    )
+
+
+def get_recent_transaction_instalment_stats(db, since: datetime) -> list[dict[str, Any]]:
+    """Returns transaction counts by instalmentType without loading all documents."""
+    transactions_col = get_collection(db, "transactions")
+    pipeline = [
+        {
+            "$match": {
+                "created_at": {"$gte": since},
+                "source": {"$ne": "pos"},
+            }
+        },
+        {
+            "$group": {
+                "_id": {
+                    "instalmentType": {"$ifNull": ["$instalmentType", "Не указан"]},
+                    "status": {"$ifNull": ["$status", "unknown"]},
+                },
+                "transactions_count": {"$sum": 1},
+                "total_amount": {"$sum": {"$ifNull": ["$price", 0]}},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$_id.instalmentType",
+                "transactions_count": {"$sum": "$transactions_count"},
+                "total_amount": {"$sum": "$total_amount"},
+                "status_counts": {
+                    "$push": {
+                        "k": "$_id.status",
+                        "v": "$transactions_count",
+                    }
+                },
+            }
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "transactions_count": 1,
+                "total_amount": 1,
+                "status_counts": {"$arrayToObject": "$status_counts"},
+            }
+        },
+        {"$sort": {"_id": 1}},
+    ]
+    return list(transactions_col.aggregate(pipeline))
+
+
+def get_recent_recurrent_success_instalment_stats(db, since: datetime) -> list[dict[str, Any]]:
+    """Returns successful recurrent transaction counts by instalmentType."""
+    transactions_col = get_collection(db, "transactions")
+    pipeline = [
+        {
+            "$match": {
+                "created_at": {"$gte": since},
+                "source": {"$ne": "pos"},
+                "status": "success",
+                "productType": "recurrent",
+            }
+        },
+        {
+            "$group": {
+                "_id": {"$ifNull": ["$instalmentType", "Не указан"]},
+                "transactions_count": {"$sum": 1},
+            }
+        },
+        {"$sort": {"_id": 1}},
+    ]
+    return list(transactions_col.aggregate(pipeline))
+
+
+def get_recent_transaction_fail_examples(
+    db,
+    since: datetime,
+    *,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Returns a bounded sample of recent failed transactions for reporting."""
+    transactions_col = get_collection(db, "transactions")
+    return list(
+        transactions_col.find(
+            {
+                "created_at": {"$gte": since},
+                "source": {"$ne": "pos"},
+                "status": "fail",
+            },
+            {
+                "_id": 1,
+                "created_at": 1,
+                "price": 1,
+                "productType": 1,
+                "instalmentType": 1,
+                "reason": 1,
+            },
+        ).sort("created_at", -1).limit(limit)
     )
 
 
@@ -457,6 +568,6 @@ def get_access_entries_for_users(
                 "accessType": {"$ne": "staff"},
                 "time": {"$gte": since, "$lte": now},
             },
-            {"_id": 1, "user": 1, "time": 1, "accessType": 1, "club": 1},
+            {"_id": 1, "user": 1, "time": 1, "accessType": 1, "club": 1, "visits": 1},
         )
     )

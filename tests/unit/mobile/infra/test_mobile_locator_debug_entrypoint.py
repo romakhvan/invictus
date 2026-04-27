@@ -13,3 +13,15 @@ def test_mobile_locator_debug_opens_interactive_menu(monkeypatch):
     test_mobile_locator_debug.test_mobile_locator_debug(driver)
 
     assert calls == [driver]
+
+
+def test_mobile_locator_debug_does_not_request_teardown_menu():
+    from tests.mobile.infra import test_mobile_locator_debug
+
+    marker_names = {
+        marker.name
+        for marker in getattr(test_mobile_locator_debug.test_mobile_locator_debug, "pytestmark", [])
+    }
+
+    assert "mobile" in marker_names
+    assert "interactive_mobile" not in marker_names

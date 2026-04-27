@@ -1,8 +1,4 @@
-"""
-Проверки entrypoints в табе «Записи».
-
-Сценарий: главная (NEW_USER) → таб «Записи» → клик по секции → открывается ожидаемая страница.
-"""
+"""Checks entrypoints in the Bookings tab."""
 
 from typing import TYPE_CHECKING, Type
 
@@ -14,7 +10,11 @@ from src.pages.mobile.bookings.events_bookings_page import EventsBookingsPage
 from src.pages.mobile.bookings.faq_bookings_page import FaqBookingsPage
 from src.pages.mobile.bookings.group_bookings_page import GroupBookingsPage
 from src.pages.mobile.bookings.personal_bookings_page import PersonalBookingsPage
-from src.pages.mobile.home import HomePage, HomeState
+from src.repositories.mobile_test_users_repository import (
+    MobileTestUserScenario,
+    MobileTestUserSelector,
+)
+from tests.mobile.helpers.session_helpers import ensure_test_user_session
 
 if TYPE_CHECKING:
     from appium.webdriver import Remote
@@ -22,50 +22,47 @@ if TYPE_CHECKING:
 
 @pytest.mark.mobile
 @pytest.mark.parametrize(
-    "entrypoint_method,ExpectedPage",
+    "user_scenario,entrypoint_method,ExpectedPage",
     [
-        ("open_personal_section", PersonalBookingsPage),
-        ("open_group_section", GroupBookingsPage),
-        ("open_doctors_section", DoctorsSchedulePage),
-        ("open_events_section", EventsBookingsPage),
-        ("open_faq_section", FaqBookingsPage),
+        (MobileTestUserScenario.POTENTIAL_USER, "open_personal_section", PersonalBookingsPage),
+        (MobileTestUserScenario.POTENTIAL_USER, "open_group_section", GroupBookingsPage),
+        (MobileTestUserScenario.POTENTIAL_USER, "open_doctors_section", DoctorsSchedulePage),
+        (MobileTestUserScenario.POTENTIAL_USER, "open_events_section", EventsBookingsPage),
+        (MobileTestUserScenario.POTENTIAL_USER, "open_faq_section", FaqBookingsPage),
+        (MobileTestUserScenario.RABBIT_HOLE_USER, "open_personal_section", PersonalBookingsPage),
+        (MobileTestUserScenario.RABBIT_HOLE_USER, "open_group_section", GroupBookingsPage),
+        (MobileTestUserScenario.RABBIT_HOLE_USER, "open_doctors_section", DoctorsSchedulePage),
+        (MobileTestUserScenario.RABBIT_HOLE_USER, "open_events_section", EventsBookingsPage),
+        (MobileTestUserScenario.RABBIT_HOLE_USER, "open_faq_section", FaqBookingsPage),
     ],
     ids=[
-        "personal",
-        "group",
-        "doctors",
-        "events",
-        "faq",
+        "new_user-personal",
+        "new_user-group",
+        "new_user-doctors",
+        "new_user-events",
+        "new_user-faq"
     ],
 )
 def test_bookings_entrypoints_open_expected_page(
-    potential_user_on_main_screen: "Remote",
+    mobile_driver,
+    db,
+    user_scenario: MobileTestUserScenario,
     entrypoint_method: str,
     ExpectedPage: Type,
 ):
-    """
-    С таба «Записи» по entrypoint секции открывается ожидаемая страница.
-    """
-    driver = potential_user_on_main_screen
+    """A Bookings section entrypoint opens the expected page."""
+    driver: "Remote" = mobile_driver
+    context = MobileTestUserSelector(db).select_or_skip(user_scenario)
 
-    # Гарантируем, что находимся на главной в состоянии NEW_USER.
-    home = HomePage(driver)
-    assert home.get_current_home_state() == HomeState.NEW_USER, (
-        "Ожидалось состояние NEW_USER. Фикстура potential_user_on_main_screen "
-        "должна обеспечивать вход под potential."
-    )
-
-    # Переход в таб «Записи» через нижнюю навигацию.
-    bookings = home.nav.open_bookings()
+    nav = ensure_test_user_session(driver, db, context)
+    bookings = nav.open_bookings()
     assert isinstance(bookings, BookingsPage)
 
-    # Вызов entrypoint и проверка типа целевой страницы.
     print(
         f"▶️ Проверка entrypoint '{entrypoint_method}' в табе 'Записи' "
         f"→ ожидаемая страница {ExpectedPage.__name__}"
     )
-    open_fn = getattr(bookings, entrypoint_method)
-    page = open_fn()
+    page = getattr(bookings, entrypoint_method)()
     print(f"ℹ️ Entrypoint '{entrypoint_method}' вернул объект: {type(page).__name__}")
 
     assert isinstance(page, ExpectedPage), (

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from appium.webdriver import Remote
 from appium.webdriver.common.appiumby import AppiumBy
+from selenium.common.exceptions import TimeoutException
 from src.pages.mobile.base_content_block import BaseContentBlock
 
 if TYPE_CHECKING:
@@ -31,7 +32,12 @@ class HomeNewUserContent(BaseContentBlock):
     WANT_BONUSES_BTN = (AppiumBy.XPATH, '//android.widget.TextView[@text="Хочу бонусы!"]')
     # Кликабельный контейнер оффера «10 ДНЕЙ...» с content-desc "Расскажите подробнее!"
     TELL_MORE_ENTRYPOINT = (AppiumBy.ACCESSIBILITY_ID, "Расскажите подробнее!")
-    OFFER_TITLE = DETECT_LOCATOR
+    OFFER_TITLE = (
+        AppiumBy.XPATH,
+        '//android.widget.TextView[@text="ВОТ ЧТО ВАС ЖДЁТ"]',
+    )
+    OFFER_PRICE_LABEL = (AppiumBy.XPATH, '//android.widget.TextView[contains(@text, "2 990")]')
+    DETECT_LOCATORS = (DETECT_LOCATOR, TELL_MORE_ENTRYPOINT)
     # Кнопка в оверлее Rabbit Hole (по частичному тексту «Купить», без привязки к цене)
     RABBIT_HOLE_BUY_BTN = (AppiumBy.XPATH, '//*[contains(@content-desc, "Купить за")]')
     PROGRESS_LABEL = (AppiumBy.XPATH, '//android.widget.TextView[@text="Весь ваш прогресс — в приложении"]')
@@ -57,7 +63,10 @@ class HomeNewUserContent(BaseContentBlock):
 
     def assert_ui(self) -> None:
         """Проверяет, что отображается контент для нового пользователя."""
-        self.wait_visible(self.DETECT_LOCATOR, "Контент 'новый пользователь' не найден (нет оффера '10 ДНЕЙ')")
+        self.wait_visible(
+            self.TELL_MORE_ENTRYPOINT,
+            "Контент 'новый пользователь' не найден (нет кнопки 'Расскажите подробнее!')",
+        )
 
     def click_tell_more(self) -> None:
         """Нажать «Расскажите подробнее!» (переход к деталям оффера/онбордингу)."""
@@ -74,9 +83,12 @@ class HomeNewUserContent(BaseContentBlock):
         return " ".join(match.group(1).split())
 
     def get_offer_price_text(self) -> str:
-        """Возвращает цену из заголовка Rabbit Hole оффера."""
-        offer_text = self.get_text(self.OFFER_TITLE)
-        return self._extract_price_text(offer_text)
+        """Возвращает цену из Rabbit Hole оффера."""
+        try:
+            offer_text = self.get_text(self.OFFER_PRICE_LABEL, timeout=2)
+            return self._extract_price_text(offer_text)
+        except TimeoutException:
+            return self.get_buy_button_price_text()
 
     def get_buy_button_price_text(self) -> str:
         """Возвращает цену из кнопки покупки Rabbit Hole."""

@@ -30,6 +30,7 @@ from src.repositories.payments.checks_repository import (
     get_visit_bonus_records_for_users,
     get_visit_bonus_user_ids,
     get_visit_transactions_with_club_type,
+    get_visits_map_by_ids,
 )
 
 
@@ -255,6 +256,7 @@ class VisitBonusAccrualCheckResult:
 class VisitBonusCoverageViolation:
     user_id: str
     date: Any
+    accesscontrol_id: str
 
 
 @dataclass(frozen=True)
@@ -924,6 +926,39 @@ def _time_bucket(dt: datetime, sec: int) -> int:
     return (int(dt.timestamp()) // sec) * sec
 
 
+def _visit_source_from_entry(entry: dict[str, Any], visits_map: dict[str, dict[str, Any]] | None = None) -> Any:
+    visits = entry.get("visits") or {}
+    if isinstance(visits, dict):
+        return visits.get("source")
+    if visits_map:
+        return visits_map.get(str(visits), {}).get("source")
+    return None
+
+
+def _is_visit_bonus_eligible_entry(
+    entry: dict[str, Any],
+    visits_map: dict[str, dict[str, Any]] | None = None,
+) -> bool:
+    """Excludes visits bought by the same user from VISIT bonus accrual checks."""
+    if entry.get("accessType") != "visits":
+        return True
+    return _visit_source_from_entry(entry, visits_map) != "user"
+
+
+def _visit_ids_from_entries(entries: list[dict[str, Any]]) -> list[Any]:
+    return [
+        entry["visits"]
+        for entry in entries
+        if entry.get("accessType") == "visits"
+        and entry.get("visits") is not None
+        and not isinstance(entry.get("visits"), dict)
+    ]
+
+
+def _day_start(value: datetime) -> datetime:
+    return value.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def run_visit_bonus_accrual_check(
     db,
     period_days: int,
@@ -982,9 +1017,13 @@ def run_visit_bonus_accrual_check(
         since=window_start,
         now=window_end,
     )
+    visits_map = get_visits_map_by_ids(db, visit_ids=_visit_ids_from_entries(entries))
+    eligible_entries = [
+        entry for entry in entries if _is_visit_bonus_eligible_entry(entry, visits_map)
+    ]
     entry_set = {
         (str(entry["user"]), _time_bucket(entry["time"], time_tolerance_sec))
-        for entry in entries
+        for entry in eligible_entries
         if entry.get("user") is not None and entry.get("time") is not None
     }
 
@@ -1014,7 +1053,7 @@ def run_visit_bonus_accrual_check(
         since=since,
         sample_size=sample_size,
         bonus_records_count=len(visit_bonuses),
-        access_entries_count=len(entries),
+        access_entries_count=len(eligible_entries),
         duplicate_days=duplicate_days,
         missing_visit_bonuses=missing_visit_bonuses,
     )
@@ -1049,7 +1088,7 @@ def run_visit_bonus_coverage_check(
 
     bonuses = get_visit_bonus_records_for_users(
         db,
-        since=since,
+        since=_day_start(since),
         user_ids=bonus_user_ids,
     )
     entries = get_access_entries_for_users(
@@ -1064,14 +1103,28 @@ def run_visit_bonus_coverage_check(
         for bonus in bonuses
         if bonus.get("user") is not None and bonus.get("time") is not None
     }
+    visits_map = get_visits_map_by_ids(db, visit_ids=_visit_ids_from_entries(entries))
+    eligible_entries = [
+        entry for entry in entries if _is_visit_bonus_eligible_entry(entry, visits_map)
+    ]
     visit_days = {
         (str(entry["user"]), entry["time"].date())
-        for entry in entries
+        for entry in eligible_entries
         if entry.get("user") is not None and entry.get("time") is not None
     }
     violations = [
-        VisitBonusCoverageViolation(user_id=user_id, date=date)
-        for user_id, date in sorted(visit_days - bonus_days)
+        VisitBonusCoverageViolation(
+            user_id=str(entry["user"]),
+            date=entry["time"].date(),
+            accesscontrol_id=str(entry["_id"]),
+        )
+        for entry in sorted(
+            eligible_entries,
+            key=lambda item: (str(item.get("user")), item.get("time"), str(item.get("_id"))),
+        )
+        if entry.get("user") is not None
+        and entry.get("time") is not None
+        and (str(entry["user"]), entry["time"].date()) not in bonus_days
     ]
 
     return VisitBonusCoverageCheckResult(
@@ -1413,6 +1466,12 @@ def run_promo_code_discount_check(
             original_price = subscriptions[0].get("price")
             discount_type = discount.get("type", "")
             amount = discount.get("amount", 0)
+            spread_on_type = (
+                ((discount.get("destination") or {}).get("spreadOn") or {}).get("type", "")
+            )
+
+            if str(spread_on_type).lower() == "joinfee":
+                continue
 
             expected = None
             if original_price is not None:

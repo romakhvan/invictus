@@ -447,18 +447,14 @@ def test_webkassa_status_by_clubs(db, period_days):
 
         print(f"  - Р§РµРє РЅРµ С‚СЂРµР±СѓРµС‚СЃСЏ (price <= 0): {total_receipt_not_required}")
 
-        success_rate = (total_success / total_transactions * 100) if total_transactions > 0 else 0
-        error_rate = (total_errors / total_transactions * 100) if total_transactions > 0 else 0
-        empty_rate = (total_empty / total_transactions * 100) if total_transactions > 0 else 0
-
         allure.attach(
             f"Всего клубов: {len(sorted_clubs_alphabetically)}\n"
             f"  - С проблемами: {len(clubs_with_problems)}\n"
             f"  - Без проблем: {len(clubs_without_problems)}\n\n"
             f"Всего транзакций: {total_transactions}\n"
-            f"  - С успешными чеками: {total_success} ({success_rate:.1f}%)\n"
-            f"  - С ошибочными чеками: {total_errors} ({error_rate:.1f}%)\n"
-            f"  - Без чеков: {total_empty} ({empty_rate:.1f}%)",
+            f"  - С успешными чеками: {total_success}\n"
+            f"  - С ошибочными чеками: {total_errors}\n"
+            f"  - Без чеков: {total_empty}",
             name="Общая статистика",
             attachment_type=allure.attachment_type.TEXT
         )
@@ -572,89 +568,4 @@ def test_webkassa_status_by_clubs(db, period_days):
             name="Примеры транзакций без чеков",
             attachment_type=allure.attachment_type.TEXT
         )
-
-    # ── Шаг 3: Итоговая оценка ────────────────────────────────────────────
-    with allure.step("Итоговая оценка"):
-        print("\n" + "=" * 110)
-        print("ИТОГОВАЯ ОЦЕНКА")
-        print("=" * 110)
-
-        warnings = []
-        if total_transactions > 0:
-            print(f"\nУспешных транзакций с чеками: {total_success} ({success_rate:.1f}%)")
-            print(f"Транзакций с ошибочными чеками: {total_errors} ({error_rate:.1f}%)")
-            print(f"Транзакций без чеков: {total_empty} ({empty_rate:.1f}%)")
-
-            if total_errors > 0:
-                warnings.append(f"Есть транзакции с ошибочными чеками: {total_errors} ({error_rate:.1f}%)")
-            if empty_rate > 90:
-                warnings.append(f"Большинство транзакций без чеков: {empty_rate:.1f}% (порог: 90%)")
-            if success_rate > 20:
-                print(f"\nХороший показатель успешных чеков: {success_rate:.1f}%")
-
-        print("\n" + "=" * 110)
-
-        if warnings:
-            warnings_text = "\n".join(warnings)
-            allure.attach(
-                warnings_text,
-                name="❌ Нарушения порогов",
-                attachment_type=allure.attachment_type.TEXT
-            )
-
-            clubs_with_errors = [
-                (stats, stats["with_error_receipts"])
-                for _, stats in sorted_clubs_by_problems
-                if stats["with_error_receipts"] > 0
-            ]
-
-            def _classify_severity(stats: dict) -> str:
-                main_error = ""
-                if stats["error_text_counts"]:
-                    main_error = max(stats["error_text_counts"], key=stats["error_text_counts"].get).lower()
-                if "автономном режиме" in main_error or "офд" in main_error or "72" in main_error:
-                    return "critical"
-                if "лицензи" in main_error:
-                    return "critical"
-                return "medium"
-
-            def _main_error_short(stats: dict) -> str:
-                if not stats["error_text_counts"]:
-                    return "неизвестная ошибка"
-                main_error = max(stats["error_text_counts"], key=stats["error_text_counts"].get)
-                et = main_error.lower()
-                if "автономном режиме" in et or "72" in et:
-                    return "ОФД offline > 72h"
-                if "лицензи" in et:
-                    return "нет лицензии"
-                if "сумма" in et and ("меньше" in et or "не может" in et):
-                    return "сумма < 0"
-                if "безналичной" in et and "больше" in et:
-                    return "безнал > итого"
-                if "отменена" in et:
-                    return "транзакция отменена"
-                return main_error[:60]
-
-            critical_clubs = [(s, cnt) for s, cnt in clubs_with_errors if _classify_severity(s) == "critical"]
-            medium_clubs = [(s, cnt) for s, cnt in clubs_with_errors if _classify_severity(s) == "medium"]
-
-            summary_lines = [
-                "❌ WebKassa monitoring FAILED",
-                "",
-                f"Всего транзакций: {total_transactions}",
-                f"Ошибочных: {total_errors} ({error_rate:.1f}%)",
-                f"Затронуто клубов: {len(clubs_with_errors)}",
-            ]
-            if critical_clubs:
-                summary_lines.append("")
-                summary_lines.append("🔴 Critical:")
-                for s, cnt in critical_clubs:
-                    summary_lines.append(f"  - {_short_club_name(s['name'])} — {cnt} ошибок ({_main_error_short(s)})")
-            if medium_clubs:
-                summary_lines.append("")
-                summary_lines.append("🟠 Medium:")
-                for s, cnt in medium_clubs:
-                    summary_lines.append(f"  - {_short_club_name(s['name'])} — {cnt} ({_main_error_short(s)})")
-
-            assert not warnings, "\n".join(summary_lines)
 

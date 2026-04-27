@@ -12,6 +12,10 @@ import os
 from appium.webdriver import Remote
 from appium.webdriver.common.appiumby import AppiumBy
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver import ActionChains
+from selenium.webdriver.common.actions import interaction
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -25,7 +29,7 @@ class MobileInteractionMixin:
     """
 
     def _wait(self, timeout: Optional[int] = None) -> WebDriverWait:
-        """Если timeout None — используется дефолтный wait (20s), иначе новый WebDriverWait."""
+        """Если timeout None — используется дефолтный wait (10s), иначе новый WebDriverWait."""
         if timeout is None:
             return self.wait
         return WebDriverWait(self.driver, timeout)
@@ -89,7 +93,7 @@ class MobileInteractionMixin:
     def click(self, locator: Locator, timeout: Optional[int] = None):
         """Клик по элементу."""
         locator_str = self._locator_str(locator)
-        wait_timeout = timeout if timeout is not None else 20
+        wait_timeout = timeout if timeout is not None else 10
         self._log_ui(f"WAIT CLICKABLE ({wait_timeout}s): {locator_str}")
         wait = self._wait(timeout)
         element = wait.until(EC.element_to_be_clickable(locator))
@@ -101,7 +105,7 @@ class MobileInteractionMixin:
     def send_keys(self, locator: Locator, text: str, timeout: Optional[int] = None):
         """Ввод текста в поле."""
         locator_str = self._locator_str(locator)
-        wait_timeout = timeout if timeout is not None else 20
+        wait_timeout = timeout if timeout is not None else 10
         self._log_ui(f"WAIT PRESENT ({wait_timeout}s): {locator_str}")
         wait = self._wait(timeout)
         element = wait.until(EC.presence_of_element_located(locator))
@@ -114,7 +118,7 @@ class MobileInteractionMixin:
     def get_text(self, locator: Locator, timeout: Optional[int] = None) -> str:
         """Получить текст элемента."""
         locator_str = self._locator_str(locator)
-        wait_timeout = timeout if timeout is not None else 20
+        wait_timeout = timeout if timeout is not None else 10
         self._log_ui(f"WAIT PRESENT ({wait_timeout}s): {locator_str}")
         wait = self._wait(timeout)
         element = wait.until(EC.presence_of_element_located(locator))
@@ -139,6 +143,20 @@ class MobileInteractionMixin:
     def swipe(self, start_x: int, start_y: int, end_x: int, end_y: int, duration: int = 1000):
         """Свайп по экрану."""
         self.driver.swipe(start_x, start_y, end_x, end_y, duration)
+
+    def swipe_by_w3c_actions(self, start_x: int, start_y: int, end_x: int, end_y: int) -> None:
+        """W3C touch swipe, useful when driver.swipe is unstable on a screen."""
+        self._log_ui(f"W3C SWIPE: ({start_x}, {start_y}) -> ({end_x}, {end_y})")
+        actions = ActionChains(self.driver)
+        actions.w3c_actions = ActionBuilder(
+            self.driver,
+            mouse=PointerInput(interaction.POINTER_TOUCH, "touch"),
+        )
+        actions.w3c_actions.pointer_action.move_to_location(start_x, start_y)
+        actions.w3c_actions.pointer_action.pointer_down()
+        actions.w3c_actions.pointer_action.move_to_location(end_x, end_y)
+        actions.w3c_actions.pointer_action.release()
+        actions.perform()
 
     def tap_by_coordinates(
         self,
@@ -199,7 +217,7 @@ class MobileInteractionMixin:
         self,
         locator: Locator,
         error_message: str = "Element not found",
-        timeout: int = 20,
+        timeout: int = 10,
         take_screenshot_on_timeout: bool = True,
     ):
         """Ждёт видимости элемента и выбрасывает исключение с понятным сообщением."""
@@ -220,7 +238,7 @@ class MobileInteractionMixin:
         self,
         locator: Locator,
         error_message: str = "Element is still visible",
-        timeout: int = 20,
+        timeout: int = 10,
     ):
         """Ждёт, пока элемент станет невидимым (или исчезнет из DOM)."""
         locator_str = self._locator_str(locator)
@@ -237,7 +255,7 @@ class MobileInteractionMixin:
         self,
         locator: Locator,
         error_message: str = "Element is not clickable",
-        timeout: int = 20,
+        timeout: int = 10,
         take_screenshot_on_timeout: bool = True,
     ):
         """Ждёт, пока элемент станет кликабельным, и возвращает его."""
@@ -258,7 +276,7 @@ class MobileInteractionMixin:
         self,
         locator: Locator,
         error_message: str = "Element not found",
-        timeout: int = 20,
+        timeout: int = 10,
         take_screenshot_on_timeout: bool = True,
     ):
         """Ждёт присутствия элемента в DOM (не обязательно видимого)."""
@@ -289,4 +307,4 @@ class BaseContentBlock(MobileInteractionMixin):
 
     def __init__(self, driver: Remote):
         self.driver: Remote = driver
-        self.wait = WebDriverWait(driver, 20)
+        self.wait = WebDriverWait(driver, 10)

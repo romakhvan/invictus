@@ -14,18 +14,14 @@ if TYPE_CHECKING:
 
 from src.pages.mobile.bookings.bookings_page import BookingsPage
 from src.pages.mobile.bookings.qr_overlay import QrOverlay
-from src.pages.mobile.home import HomePage, HomeState
 from src.pages.mobile.profile.profile_page import ProfilePage
 from src.pages.mobile.stats.stats_page import StatsPage
 
 
 @pytest.mark.mobile
-def test_bottom_nav_tabs_visible(potential_user_on_main_screen: "Remote"):
+def test_bottom_nav_tabs_visible(potential_user_session):
     """Bottom navigation shows the expected shell tabs for a NEW_USER."""
-    home = HomePage(potential_user_on_main_screen).wait_loaded()
-    assert home.get_current_home_state() == HomeState.NEW_USER
-
-    nav = home.nav
+    nav = potential_user_session
     assert nav.is_visible(nav.TAB_MAIN), "Ожидался таб 'Главная'"
     assert nav.is_visible(nav.TAB_BOOKINGS), "Ожидался таб 'Записи'"
     assert nav.is_visible(nav.TAB_STATS), "Ожидался таб 'Статистика'"
@@ -43,23 +39,19 @@ def test_bottom_nav_tabs_visible(potential_user_on_main_screen: "Remote"):
     ids=["bookings", "stats", "profile"],
 )
 def test_bottom_nav_opens_shell_sections(
-    potential_user_on_main_screen: "Remote",
+    potential_user_session,
     open_method: str,
     expected_type: type,
 ):
     """Bottom navigation opens shell pages through the page-object layer."""
-    home = HomePage(potential_user_on_main_screen).wait_loaded()
-    assert home.get_current_home_state() == HomeState.NEW_USER
-
-    page = getattr(home.nav, open_method)()
+    page = getattr(potential_user_session, open_method)()
     assert isinstance(page, expected_type)
 
 
 @pytest.mark.mobile
-def test_bottom_nav_qr_opens_overlay(potential_user_on_main_screen: "Remote"):
+def test_bottom_nav_qr_opens_overlay(potential_user_session):
     """QR button opens the QR overlay and allows returning to Bookings."""
-    home = HomePage(potential_user_on_main_screen).wait_loaded()
-    qr = home.nav.open_qr()
+    qr = potential_user_session.open_qr()
 
     assert isinstance(qr, QrOverlay)
     qr.assert_texts_present()

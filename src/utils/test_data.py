@@ -1,5 +1,15 @@
 """
 Утилиты для работы с тестовыми данными.
+
+Used by:
+- [tests/mobile/flows/rabbit_hole/new_client_buy_rh.py](../../tests/mobile/flows/rabbit_hole/new_client_buy_rh.py)
+- [tests/mobile/navigation/test_navigation_new_user.py](../../tests/mobile/navigation/test_navigation_new_user.py)
+- [tests/mobile/navigation/test_bottom_navigation.py](../../tests/mobile/navigation/test_bottom_navigation.py)
+- [tests/mobile/home/test_home_entrypoints_new_user.py](../../tests/mobile/home/test_home_entrypoints_new_user.py)
+- [tests/mobile/home/test_home_club_filter.py](../../tests/mobile/home/test_home_club_filter.py)
+- [tests/mobile/bookings/test_bookings_entrypoints.py](../../tests/mobile/bookings/test_bookings_entrypoints.py)
+- [tests/mobile/bookings/test_bookings_tabs.py](../../tests/mobile/bookings/test_bookings_tabs.py)
+- [tests/mobile/bookings/test_personal_club_filter.py](../../tests/mobile/bookings/test_personal_club_filter.py)
 """
 
 from typing import Dict, Any

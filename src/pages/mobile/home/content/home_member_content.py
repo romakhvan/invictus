@@ -13,7 +13,13 @@ class HomeMemberContent(BaseContentBlock):
     page_title = "Home (Member)"  # для контекста в сообщениях об ошибках
 
     # Уникальный элемент для определения этого состояния. TODO: заменить на реальный селектор.
-    DETECT_LOCATOR = (AppiumBy.XPATH, '//android.widget.TextView[contains(@text, "Абонемент") or contains(@resource-id, "membership")]')
+    DETECT_LOCATOR = (
+        AppiumBy.XPATH,
+        '//android.widget.TextView[(contains(@text, "Абонемент") '
+        'and not(@text="Абонементы") '
+        'and not(@text="Купить абонемент")) '
+        'or contains(@resource-id, "membership")]',
+    )
 
     # TODO: Добавить селекторы (дашборд абонемента, остаток занятий и т.д.)
 

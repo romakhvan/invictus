@@ -102,6 +102,6 @@ def test_home_new_user_rabbit_hole_opens_overlay(
         content.OFFER_TITLE
     ), "Ожидалось, что после клика по «Расскажите подробнее!» появится оверлей оффера с заголовком «10 ДНЕЙ...»"
     assert content.is_visible(
-        content.RABBIT_HOLE_BUY_BTN, timeout=15
+        content.RABBIT_HOLE_BUY_BTN, timeout=10
     ), "Ожидалось, что в оверлее Rabbit Hole появится кнопка «Купить»"
     print("✅ Оверлей Rabbit Hole открыт: заголовок оффера и кнопка «Купить» отображаются")

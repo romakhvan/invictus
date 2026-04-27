@@ -26,7 +26,7 @@
 # ALLURE: off
 # OPEN_REPORT: off
 # INTERACTIVE: on
-# PYTEST_ARGS: -v -m mobile -s --mobile-ui-logs
+# PYTEST_ARGS: -v -m mobile -s --mobile-ui-logs 
 
 # --- Infra ---
 # tests\mobile\infra\test_appium_connection.py
@@ -46,6 +46,14 @@
 # tests\mobile\bookings\test_bookings_entrypoints.py | --mobile-no-reset -k doctors
 # tests\mobile\bookings\test_bookings_tabs.py | --mobile-no-reset
 
+# --- Profile ---
+tests\mobile\profile\test_profile_entrypoints.py | --mobile-no-reset
+
+# --- Stats ---
+# tests\mobile\stats\test_stats_modes.py | --mobile-no-reset
+# tests\mobile\stats\test_stats_modes.py | --mobile-no-reset -k with_stats
+
+
 # --- Navigation ---
 # tests\mobile\navigation\test_navigation_new_user.py | --mobile-no-reset
 
@@ -53,4 +61,5 @@
 # tests\mobile\flows\rabbit_hole\new_client_buy_rh.py | --mobile-no-reset
 
 # --- Debug ---
-tests\mobile\infra\test_mobile_locator_debug.py | --mobile-no-reset
+# tests\mobile\infra\test_mobile_locator_debug.py | --mobile-no-reset
+# pytest tests/mobile/infra/test_mobile_locator_debug.py --mobile-no-reset -s -v 
